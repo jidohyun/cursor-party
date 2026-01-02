@@ -3,16 +3,107 @@
   phx-hook="CursorTrack"
   class="relative w-screen h-screen bg-gray-900 overflow-hidden select-none font-sans"
 >
+  <div class="absolute top-6 left-6 z-40 pointer-events-auto flex flex-col gap-2 max-h-[50vh]">
+    <div class="bg-black/50 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden flex flex-col w-[260px]">
+      <div class="px-4 py-3 border-b border-white/10 flex items-center justify-between bg-white/5">
+        <div class="flex items-center gap-2 text-white font-bold text-sm">
+          <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_lime]"></div>
+          <span>Online Users ({length(@leaderboard)})</span>
+        </div>
+      </div>
+
+      <div
+        class="overflow-y-auto overflow-x-hidden p-2 space-y-1 custom-scrollbar"
+        style="max-height: 300px;"
+      >
+        <%= if @leaderboard == [] do %>
+          <div class="text-gray-500 text-xs text-center py-4 italic">
+            No players joined yet...
+          </div>
+        <% else %>
+          <%= for {user, index} <- Enum.with_index(@leaderboard) do %>
+            <div class={"flex items-center gap-2 p-2 rounded-lg transition-colors " <> (if user.id == @my_id, do: "bg-white/10 border border-white/20", else: "hover:bg-white/5")}>
+              <div class={"w-5 text-center font-mono font-bold text-xs " <> (case index do 0 -> "text-yellow-400"; 1 -> "text-gray-300"; 2 -> "text-orange-400"; _ -> "text-gray-500" end)}>
+                {index + 1}
+              </div>
+
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 text-xs text-white">
+                  <span>{user.country}</span>
+                  <span class="truncate font-medium" style={"color: #{user.color}"}>
+                    {user.name}
+                  </span>
+                  <%= if user.id == @my_id do %>
+                    <span class="text-[10px] bg-purple-500/30 text-purple-200 px-1 rounded">
+                      ME
+                    </span>
+                  <% end %>
+                </div>
+                <div class="flex items-center justify-between mt-0.5 text-[10px] text-gray-400 font-mono">
+                  <span class="flex items-center gap-0.5">
+                    <span class="text-red-400/80">⚔️</span>
+                    {Number.Delimit.number_to_delimited(user.total_damage, precision: 0)}
+                  </span>
+                  <span class="flex items-center gap-0.5 opacity-70">
+                    <span>⏱️</span>
+                    <%= if user.id == @my_id do %>
+                      {format_time(user.playtime + @session_seconds)}
+                    <% else %>
+                      {format_time(user.playtime)}
+                    <% end %>
+                  </span>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="absolute top-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-auto">
+    <%= if @joined? do %>
+      <div class="flex flex-col bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4 overflow-hidden min-w-[200px]">
+        <div class="flex items-center gap-3 px-5 py-3 border-b border-white/5 bg-white/5">
+          <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]">
+          </div>
+          <span class="text-lg">{@my_country}</span>
+          <span class="text-white font-bold text-sm tracking-wide truncate max-w-[120px]">
+            {@my_name}
+          </span>
+        </div>
+        <div class="px-5 py-3 space-y-2">
+          <div class="flex items-center justify-between gap-4 text-xs">
+            <span class="text-gray-400 flex items-center gap-1">⚔️ Damage</span>
+            <span class="text-red-400 font-mono font-bold text-sm">
+              {Number.Delimit.number_to_delimited(@my_damage, precision: 0)}
+            </span>
+          </div>
+          <div class="flex items-center justify-between gap-4 text-xs">
+            <span class="text-gray-400 flex items-center gap-1">⏱️ Playtime</span>
+            <span class="text-blue-400 font-mono font-bold">
+              {format_time(@my_playtime + @session_seconds)}
+            </span>
+          </div>
+        </div>
+      </div>
+      <button
+        phx-click="logout"
+        class="bg-red-500/80 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-full backdrop-blur-md shadow-lg transition-all hover:scale-105 flex items-center gap-2 group border border-red-400/30"
+      >
+        <span>🚪 Logout</span>
+      </button>
+    <% end %>
+  </div>
+
   <%= if !@joined? do %>
     <div class="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-500">
       <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700 relative overflow-hidden">
         <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500">
         </div>
-
         <h2 class="text-3xl font-bold text-white mb-6 text-center bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
           Join Cursor Party
         </h2>
-
         <.form for={@form} phx-submit="join" class="space-y-6">
           <div class="space-y-2">
             <label class="block text-sm font-medium text-gray-300">Display Name</label>
@@ -27,7 +118,6 @@
               autocomplete="off"
             />
           </div>
-
           <div class="space-y-2">
             <label class="block text-sm font-medium text-gray-300">Country</label>
             <select
@@ -46,26 +136,11 @@
               <option value="BR">🇧🇷 Brazil</option>
             </select>
           </div>
-
           <button
             type="submit"
             class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 group"
           >
             <span>Start Adventure</span>
-            <svg
-              class="w-5 h-5 group-hover:translate-x-1 transition-transform"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 7l5 5m0 0l-5 5m5-5H6"
-              >
-              </path>
-            </svg>
           </button>
         </.form>
       </div>
@@ -80,18 +155,18 @@
       <div class="text-3xl text-white font-bold animate-pulse">
         MVP: <span class="text-yellow-400">{@winner}</span>
       </div>
-      <div class="mt-8 text-xl text-gray-400">
-        Refresh to play again
-      </div>
+      <div class="mt-8 text-xl text-gray-400">Refresh to play again</div>
     </div>
   <% end %>
 
   <div
+    id="boss-target"
+    phx-hook="BossEffect"
     phx-click="hit-boss"
-    class="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-75 active:scale-95 hover:scale-105 z-20 group"
+    class="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-20 group"
     style="top: 50%; left: 50%; width: 250px; height: 250px;"
   >
-    <div class="w-full h-full bg-gradient-to-br from-red-600 to-red-800 rounded-full shadow-[0_0_60px_rgba(220,38,38,0.6)] flex flex-col items-center justify-center text-white font-bold border-4 border-red-500/30 group-hover:border-red-400/50 transition-colors relative overflow-hidden">
+    <div class="w-full h-full bg-gradient-to-br from-red-600 to-red-800 rounded-full shadow-[0_0_60px_rgba(220,38,38,0.6)] flex flex-col items-center justify-center text-white font-bold border-4 border-red-500/30 group-hover:border-red-400/50 transition-all duration-100 relative overflow-hidden">
       <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
 
       <span class="text-4xl mb-2 drop-shadow-md z-10 select-none">👹 BOSS</span>
@@ -136,7 +211,6 @@
           >
             <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" stroke-linejoin="round" />
           </svg>
-
           <div class="absolute top-5 left-4 flex items-center gap-1.5 bg-gray-900/90 text-white text-[11px] px-2.5 py-1 rounded-full shadow-xl whitespace-nowrap backdrop-blur-md border border-white/10 transform transition-all group-hover:scale-105 origin-top-left">
             <span class="text-base leading-none">{cursor[:country] || "🏳️"}</span>
             <span class="font-bold tracking-wide text-gray-100">{cursor[:name] || "User"}</span>
@@ -176,7 +250,6 @@
           </path>
         </svg>
       </a>
-
       <a
         href="https://velog.io/@do-hyun123/posts"
         target="_blank"
@@ -194,11 +267,8 @@
         </svg>
       </a>
     </div>
-
     <div class="text-right">
-      <div class="text-gray-500 text-[10px] font-mono mb-0.5">
-        Ver 1.1.0 • Open Beta
-      </div>
+      <div class="text-gray-500 text-[10px] font-mono mb-0.5">Ver 1.3.0 • Leaderboard</div>
       <div class="text-gray-400 text-xs font-medium bg-black/30 px-2 py-1 rounded backdrop-blur-sm border border-white/5">
         Powered by <span class="text-purple-400">Elixir</span>
         & <span class="text-orange-400">Phoenix LiveView</span>

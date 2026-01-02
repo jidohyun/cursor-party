@@ -106,3 +106,36 @@
 }
 
 /* This file is for your main application CSS */
+
+@keyframes float-up-fade {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        transform: translateY(-20px) scale(1.2);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-40px) scale(1);
+    }
+}
+
+.damage-number {
+    position: absolute;
+    color: #ff4444; /* 빨간색 텍스트 */
+    font-weight: 900;
+    font-size: 1.5rem;
+    pointer-events: none; /* 마우스 클릭 방해 금지 */
+    user-select: none;
+    animation: float-up-fade 0.8s ease-out forwards;
+    z-index: 100;
+    text-shadow: 2px 2px 0px #000; /* 글자 테두리 효과 */
+    font-family: monospace;
+}
+
+/* 보스 피격 시 반짝임 효과 */
+.boss-hit-effect {
+    filter: brightness(1.5) sepia(1) hue-rotate(-50deg) saturate(3);
+    transform: scale(0.95) !important;
+}
