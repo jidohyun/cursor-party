@@ -8,6 +8,7 @@ defmodule CursorPartyWeb.Router do
     plug :put_root_layout, html: {CursorPartyWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :ensure_user_session
   end
 
   pipeline :api do
@@ -39,6 +40,15 @@ defmodule CursorPartyWeb.Router do
 
       live_dashboard "/dashboard", metrics: CursorPartyWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
+    end
+  end
+
+  defp ensure_user_session(conn, _opts) do
+    if get_session(conn, :user_uuid) do
+      conn
+    else
+      user_uuid = Base.encode16(:crypto.strong_rand_bytes(8))
+      put_session(conn, :user_uuid, "user_#{user_uuid}")
     end
   end
 end
