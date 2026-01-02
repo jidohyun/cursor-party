@@ -6,7 +6,7 @@
   <div class="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-800 z-0"></div>
 
   <%= if !@joined? do %>
-    <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-500">
+    <div class="absolute inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-500">
       <div class="bg-white/10 p-8 rounded-2xl border border-white/20 shadow-2xl max-w-md w-full text-center relative overflow-hidden">
         <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
         </div>
@@ -95,7 +95,7 @@
         <div class="px-5 py-3 border-t border-white/10 bg-white/5">
           <button
             phx-click="toggle-shop"
-            class="w-full py-2 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white font-bold rounded-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 border border-yellow-400/30 group"
+            class="w-full cursor-pointer py-2 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white font-bold rounded-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 border border-yellow-400/30 group"
           >
             <span class="text-xl group-hover:rotate-12 transition-transform">🛒</span>
             <span>ITEM SHOP</span>
@@ -186,7 +186,7 @@
         Lv.{@boss_level}
       </div>
 
-      <%= if boss_style.emoji == "🦠" do %>
+      <%= if boss_style.emoji == "slime" do %>
         <span class="text-4xl mb-1 drop-shadow-md z-10 select-none">👹</span>
       <% else %>
         <span class="text-5xl mb-1 drop-shadow-md z-10 select-none">{boss_style.emoji}</span>
@@ -381,7 +381,7 @@
 
     <div class="text-right">
       <div class="text-gray-500 text-[10px] font-mono mb-0.5">
-        Ver 2.0.0 • RPG Update
+        Ver 2.1.0 • Sound Effects • Particle Effects • UI Improvements
       </div>
       <div class="text-gray-400 text-xs font-medium bg-black/30 px-2 py-1 rounded backdrop-blur-sm border border-white/5">
         Powered by <span class="text-purple-400">Elixir</span>
@@ -465,7 +465,7 @@
       <div class="bg-gray-800/50 px-6 py-3 border-t border-white/5 flex justify-end">
         <button
           phx-click="close-shop"
-          class="px-5 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold transition-colors"
+          class="px-5 py-2 cursor-pointer rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold transition-colors"
         >
           Close
         </button>

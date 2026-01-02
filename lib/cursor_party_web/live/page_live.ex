@@ -249,6 +249,7 @@ defmodule CursorPartyWeb.PageLive do
 
   # 2-5. 상점 UI 제어 (열기/닫기)
   def handle_event("toggle-shop", _params, socket) do
+    socket = push_event(socket, "play-shop-sound", %{})
     {:noreply, assign(socket, show_shop: !socket.assigns.show_shop)}
   end
 
@@ -259,17 +260,34 @@ defmodule CursorPartyWeb.PageLive do
   # 2-6. 아이템 구매 (확장형 상점 로직)
   def handle_event("buy-item", %{"id" => item_id}, socket) do
     if socket.assigns.joined? do
-      # "sword" 문자열을 :sword 아톰으로 변환
       item_atom = String.to_existing_atom(item_id)
 
+      # 결과값 패턴 매칭을 강화하여 오류 방지
       case GameServer.buy_item(socket.assigns.my_id, item_atom) do
+        # 1. 최신 버전 (자동 사냥 포함, 5개 리턴)
+        {:ok, new_gold, new_power, new_items, new_auto} ->
+          socket = push_event(socket, "play-buy-sound", %{})
+
+          {:noreply,
+           assign(socket,
+             my_gold: new_gold,
+             my_power: new_power,
+             my_items: new_items,
+             my_auto: new_auto
+           )}
+
+        # 2. 구 버전 호환 (자동 사냥 미포함, 4개 리턴) -> 이걸로 매칭될 가능성 높음
         {:ok, new_gold, new_power, new_items} ->
+          socket = push_event(socket, "play-buy-sound", %{})
+          # my_auto는 기존 값 유지
           {:noreply, assign(socket, my_gold: new_gold, my_power: new_power, my_items: new_items)}
 
         {:error, :not_enough_gold} ->
           {:noreply, put_flash(socket, :error, "Not enough gold!")}
 
-        _ ->
+        # 3. 디버깅용: 알 수 없는 응답이 오면 로그 출력
+        unexpected ->
+          IO.inspect(unexpected, label: "Buy Item Error")
           {:noreply, socket}
       end
     else
@@ -342,8 +360,10 @@ defmodule CursorPartyWeb.PageLive do
   def handle_info(:clear_winner, socket), do: {:noreply, assign(socket, winner: nil)}
 
   # 3-5. 채팅 업데이트
-  def handle_info({:chat_update, history}, socket),
-    do: {:noreply, assign(socket, chat_messages: history)}
+  def handle_info({:chat_update, history}, socket) do
+    socket = push_event(socket, "play-chat-sound", %{})
+    {:noreply, assign(socket, chat_messages: history)}
+  end
 
   # 3-6. 오토클리커 감지
   def handle_info({:auto_clicker_detected, name, banned_id}, socket) do
