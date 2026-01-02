@@ -10,20 +10,17 @@
 
 [🇺🇸 Read in English](./README.md)
 
----
 
 ## 🎮 데모 플레이
 
 👉 **[Live Demo 보러가기](https://cursor-party.koyeb.app)**
 _(현재 Open Beta 상태입니다. 서버는 언제든 열려있으니 들어와서 보스를 때려주세요!)_
 
----
 
 ## 📸 스크린샷
 
 ![Game Screenshot](https://via.placeholder.com/800x400?text=Gameplay+Screenshot+PlaceHolder)
 
----
 
 ## 💡 프로젝트 소개
 
@@ -38,7 +35,6 @@ _(현재 Open Beta 상태입니다. 서버는 언제든 열려있으니 들어�
 - **보스 레이드 시스템:** GenServer를 통한 서버 사이드 상태 관리로 보스 체력을 동기화합니다.
 - **No Client-side Logic:** 복잡한 JS 프레임워크 없이 Phoenix LiveView만으로 실시간성을 구현했습니다.
 
----
 
 ## 🛠 기술 스택
 
@@ -47,7 +43,6 @@ _(현재 Open Beta 상태입니다. 서버는 언제든 열려있으니 들어�
 - **Deployment:** Docker, Koyeb
 - **Architecture:** OTP (Open Telecom Platform) 기반의 분산 처리
 
----
 
 ## 🚀 실행 방법 (Local)
 
@@ -79,7 +74,6 @@ _(현재 Open Beta 상태입니다. 서버는 언제든 열려있으니 들어�
 
 이제 `localhost:4000`에 접속하면 게임을 실행할 수 있습니다.
 
----
 
 ## 🤝 기여하기 (Contributing)
 
