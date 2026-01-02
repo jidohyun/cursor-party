@@ -7,6 +7,10 @@ defmodule CursorParty.GameServer do
   @human_limit_ms 50
   @ban_duration_ms 60_000
 
+  # ============================================================================
+  # Client API
+  # ============================================================================
+
   def start_link(_), do: GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   def hit(user_id, attacker_name), do: GenServer.cast(__MODULE__, {:hit, user_id, attacker_name})
   def get_state, do: GenServer.call(__MODULE__, :get_state)
@@ -17,13 +21,11 @@ defmodule CursorParty.GameServer do
 
   def get_profile(user_id), do: GenServer.call(__MODULE__, {:get_profile, user_id})
   def logout(user_id), do: GenServer.cast(__MODULE__, {:logout, user_id})
+  def get_all_profiles, do: GenServer.call(__MODULE__, :get_all_profiles)
 
-  def update_playtime(user_id, seconds),
-    do: GenServer.cast(__MODULE__, {:update_playtime, user_id, seconds})
-
-  def get_all_profiles do
-    GenServer.call(__MODULE__, :get_all_profiles)
-  end
+  # ============================================================================
+  # Server Callbacks
+  # ============================================================================
 
   @impl true
   def init(_) do
@@ -35,11 +37,6 @@ defmodule CursorParty.GameServer do
   end
 
   @impl true
-  def handle_call(:get_all_profiles, _from, state) do
-    {:reply, state.profiles, state}
-  end
-
-  @impl true
   def handle_call(:get_state, _from, state) do
     public_state = Map.drop(state, [:last_hits, :banned_users, :profiles])
     {:reply, public_state, state}
@@ -47,18 +44,21 @@ defmodule CursorParty.GameServer do
 
   @impl true
   def handle_call(:get_hp, _from, state), do: {:reply, state.hp, state}
+
   @impl true
   def handle_call({:get_profile, user_id}, _from, state),
     do: {:reply, Map.get(state.profiles, user_id), state}
 
   @impl true
+  def handle_call(:get_all_profiles, _from, state), do: {:reply, state.profiles, state}
+
+  @impl true
   def handle_cast({:register_profile, user_id, input_profile}, state) do
     existing = Map.get(state.profiles, user_id, %{})
-
+    # [수정] 딜량만 유지하고 시간 관련 필드는 제거
     merged_profile =
       Map.merge(input_profile, %{
-        total_damage: existing[:total_damage] || 0,
-        playtime: existing[:playtime] || 0
+        total_damage: existing[:total_damage] || 0
       })
 
     new_profiles = Map.put(state.profiles, user_id, merged_profile)
@@ -71,21 +71,6 @@ defmodule CursorParty.GameServer do
     new_profiles = Map.delete(state.profiles, user_id)
     :dets.insert(@db_filename, {:profiles, new_profiles})
     {:noreply, %{state | profiles: new_profiles}}
-  end
-
-  @impl true
-  def handle_cast({:update_playtime, user_id, seconds}, state) do
-    profile = Map.get(state.profiles, user_id)
-
-    if profile do
-      new_time = (profile[:playtime] || 0) + seconds
-      new_profile = Map.put(profile, :playtime, new_time)
-      new_profiles = Map.put(state.profiles, user_id, new_profile)
-      :dets.insert(@db_filename, {:profiles, new_profiles})
-      {:noreply, %{state | profiles: new_profiles}}
-    else
-      {:noreply, state}
-    end
   end
 
   @impl true
@@ -116,7 +101,7 @@ defmodule CursorParty.GameServer do
           {:noreply, state}
 
         true ->
-          # 통계 업데이트
+          # 통계 업데이트 (딜량만)
           profile = Map.get(state.profiles, user_id)
 
           new_profiles =
