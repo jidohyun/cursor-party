@@ -3,93 +3,104 @@ defmodule CursorParty.GameServer do
 
   @db_filename :cursor_party_db
   @default_hp 999_999
-  # 0.1초 (일반 클릭 제한)
   @cooldown_ms 100
-  # 0.05초 (오토클리커 감지 기준)
   @human_limit_ms 50
-  # 1분 밴
   @ban_duration_ms 60_000
 
-  # ============================================================================
-  # Client API
-  # ============================================================================
+  def start_link(_), do: GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  def hit(user_id, attacker_name), do: GenServer.cast(__MODULE__, {:hit, user_id, attacker_name})
+  def get_state, do: GenServer.call(__MODULE__, :get_state)
+  def get_hp, do: GenServer.call(__MODULE__, :get_hp)
 
-  def start_link(_) do
-    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  def register_profile(user_id, profile),
+    do: GenServer.cast(__MODULE__, {:register_profile, user_id, profile})
+
+  def get_profile(user_id), do: GenServer.call(__MODULE__, {:get_profile, user_id})
+  def logout(user_id), do: GenServer.cast(__MODULE__, {:logout, user_id})
+
+  def update_playtime(user_id, seconds),
+    do: GenServer.cast(__MODULE__, {:update_playtime, user_id, seconds})
+
+  def get_all_profiles do
+    GenServer.call(__MODULE__, :get_all_profiles)
   end
-
-  def hit(user_id, attacker_name) do
-    GenServer.cast(__MODULE__, {:hit, user_id, attacker_name})
-  end
-
-  def get_state do
-    GenServer.call(__MODULE__, :get_state)
-  end
-
-  def get_hp do
-    GenServer.call(__MODULE__, :get_hp)
-  end
-
-  # ============================================================================
-  # Server Callbacks
-  # ============================================================================
 
   @impl true
   def init(_) do
-    # DB 파일 열기
     {:ok, _table} = :dets.open_file(@db_filename, type: :set)
+    hp = lookup_dets(:boss_hp, @default_hp)
+    winner = lookup_dets(:winner, nil)
+    profiles = lookup_dets(:profiles, %{})
+    {:ok, %{hp: hp, winner: winner, last_hits: %{}, banned_users: %{}, profiles: profiles}}
+  end
 
-    # HP 불러오기
-    hp =
-      case :dets.lookup(@db_filename, :boss_hp) do
-        [{:boss_hp, val}] -> val
-        [] -> @default_hp
-      end
-
-    # 우승자 불러오기
-    winner =
-      case :dets.lookup(@db_filename, :winner) do
-        [{:winner, val}] -> val
-        [] -> nil
-      end
-
-    # 초기 상태 (last_hits, banned_users 맵 초기화)
-    {:ok, %{hp: hp, winner: winner, last_hits: %{}, banned_users: %{}}}
+  @impl true
+  def handle_call(:get_all_profiles, _from, state) do
+    {:reply, state.profiles, state}
   end
 
   @impl true
   def handle_call(:get_state, _from, state) do
-    # 클라이언트에는 밴 목록이나 클릭 기록을 보낼 필요 없음
-    public_state = Map.drop(state, [:last_hits, :banned_users])
+    public_state = Map.drop(state, [:last_hits, :banned_users, :profiles])
     {:reply, public_state, state}
   end
 
   @impl true
-  def handle_call(:get_hp, _from, state) do
-    {:reply, state.hp, state}
+  def handle_call(:get_hp, _from, state), do: {:reply, state.hp, state}
+  @impl true
+  def handle_call({:get_profile, user_id}, _from, state),
+    do: {:reply, Map.get(state.profiles, user_id), state}
+
+  @impl true
+  def handle_cast({:register_profile, user_id, input_profile}, state) do
+    existing = Map.get(state.profiles, user_id, %{})
+
+    merged_profile =
+      Map.merge(input_profile, %{
+        total_damage: existing[:total_damage] || 0,
+        playtime: existing[:playtime] || 0
+      })
+
+    new_profiles = Map.put(state.profiles, user_id, merged_profile)
+    :dets.insert(@db_filename, {:profiles, new_profiles})
+    {:noreply, %{state | profiles: new_profiles}}
+  end
+
+  @impl true
+  def handle_cast({:logout, user_id}, state) do
+    new_profiles = Map.delete(state.profiles, user_id)
+    :dets.insert(@db_filename, {:profiles, new_profiles})
+    {:noreply, %{state | profiles: new_profiles}}
+  end
+
+  @impl true
+  def handle_cast({:update_playtime, user_id, seconds}, state) do
+    profile = Map.get(state.profiles, user_id)
+
+    if profile do
+      new_time = (profile[:playtime] || 0) + seconds
+      new_profile = Map.put(profile, :playtime, new_time)
+      new_profiles = Map.put(state.profiles, user_id, new_profile)
+      :dets.insert(@db_filename, {:profiles, new_profiles})
+      {:noreply, %{state | profiles: new_profiles}}
+    else
+      {:noreply, state}
+    end
   end
 
   @impl true
   def handle_cast({:hit, user_id, attacker_name}, state) do
     now = System.monotonic_time(:millisecond)
-
-    # 1. 밴 여부 체크 (기록 없으면 통과되게 now - 1)
     ban_release_time = Map.get(state.banned_users, user_id, now - 1)
 
     if now < ban_release_time do
       {:noreply, state}
     else
-      # [수정] 여기가 범인!
-      # 기록이 없으면(nil), '1초(1000ms) 전'에 때린 것으로 침.
-      # 이러면 diff가 1000이 되므로, 최소 제한(50ms)을 안전하게 통과함.
       last_hit_time = Map.get(state.last_hits, user_id, now - 1000)
-
       diff = now - last_hit_time
 
       cond do
-        # (A) 오토클리커 감지
         diff < @human_limit_ms ->
-          # 1분 밴 설정
           new_release_time = now + @ban_duration_ms
           new_banned_users = Map.put(state.banned_users, user_id, new_release_time)
 
@@ -101,12 +112,24 @@ defmodule CursorParty.GameServer do
 
           {:noreply, %{state | banned_users: new_banned_users}}
 
-        # (B) 쿨타임 미준수
         diff <= @cooldown_ms ->
           {:noreply, state}
 
-        # (C) 정상 클릭
         true ->
+          # 통계 업데이트
+          profile = Map.get(state.profiles, user_id)
+
+          new_profiles =
+            if profile do
+              new_dmg = (profile[:total_damage] || 0) + 1
+              updated_profile = Map.put(profile, :total_damage, new_dmg)
+              p = Map.put(state.profiles, user_id, updated_profile)
+              :dets.insert(@db_filename, {:profiles, p})
+              p
+            else
+              state.profiles
+            end
+
           new_hp = state.hp - 1
           :dets.insert(@db_filename, {:boss_hp, new_hp})
           new_last_hits = Map.put(state.last_hits, user_id, now)
@@ -122,7 +145,14 @@ defmodule CursorParty.GameServer do
               {:boss_update, next_hp, attacker_name}
             )
 
-            {:noreply, %{state | hp: next_hp, winner: attacker_name, last_hits: new_last_hits}}
+            {:noreply,
+             %{
+               state
+               | hp: next_hp,
+                 winner: attacker_name,
+                 last_hits: new_last_hits,
+                 profiles: new_profiles
+             }}
           else
             Phoenix.PubSub.broadcast(
               CursorParty.PubSub,
@@ -130,14 +160,19 @@ defmodule CursorParty.GameServer do
               {:boss_update, new_hp, state.winner}
             )
 
-            {:noreply, %{state | hp: new_hp, last_hits: new_last_hits}}
+            {:noreply, %{state | hp: new_hp, last_hits: new_last_hits, profiles: new_profiles}}
           end
       end
     end
   end
 
   @impl true
-  def terminate(_reason, _state) do
-    :dets.close(@db_filename)
+  def terminate(_reason, _state), do: :dets.close(@db_filename)
+
+  defp lookup_dets(key, default) do
+    case :dets.lookup(@db_filename, key) do
+      [{^key, val}] -> val
+      [] -> default
+    end
   end
 end
