@@ -165,42 +165,117 @@
     animation: floatUpCritical 1s ease-out forwards;
 }
 
-@keyframes floatUpCritical {
+/* ==========================================================================
+   Extreme Juice Effects (타격감 강화)
+   ========================================================================== */
+
+/* 1. 일반 대미지: 빠르게 솟구쳤다 사라짐 */
+@keyframes floatUpFast {
     0% {
-        transform: translateY(0) scale(0.5) rotate(-5deg);
-        opacity: 0;
+        transform: translateY(0) scale(1) rotate(0deg);
+        opacity: 1;
     }
     20% {
-        transform: translateY(-20px) scale(1.5) rotate(5deg);
+        transform: translateY(-40px) scale(1.2) rotate(-5deg);
         opacity: 1;
-    } /* 쾅! */
+    }
     100% {
-        transform: translateY(-100px) scale(1) rotate(0deg);
+        transform: translateY(-80px) scale(0.8) rotate(5deg);
         opacity: 0;
     }
 }
 
-/* 화면 흔들림 효과 */
-.shake-screen {
-    animation: shake 0.2s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+.damage-number {
+    animation: floatUpFast 0.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+    pointer-events: none;
+    font-family: "Courier New", monospace; /* 게임 느낌 */
 }
 
-@keyframes shake {
-    10%,
-    90% {
-        transform: translate3d(-2px, 0, 0);
+/* 2. 크리티컬: 화면을 뚫고 들어오는 느낌 (Slam) */
+@keyframes critSlam {
+    0% {
+        transform: scale(3) rotate(-15deg);
+        opacity: 0;
+        filter: blur(4px);
     }
-    20%,
-    80% {
-        transform: translate3d(4px, 0, 0);
+    15% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+        filter: blur(0px);
+    } /* 쾅! */
+    25% {
+        transform: scale(1.2) rotate(5deg);
+    } /* 반동 */
+    100% {
+        transform: translateY(-50px) scale(1) rotate(0deg);
+        opacity: 0;
     }
-    30%,
-    50%,
-    70% {
-        transform: translate3d(-6px, 0, 0);
+}
+
+.damage-number.critical {
+    animation: critSlam 0.8s ease-out forwards;
+    text-shadow:
+        0 0 20px rgba(255, 215, 0, 0.8),
+        2px 2px 0px black; /* 강력한 그림자 */
+}
+
+/* 3. 화면 지진 (더 강력하게!) */
+.shake-screen {
+    animation: violentShake 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes violentShake {
+    0% {
+        transform: translate(0, 0) rotate(0);
     }
-    40%,
-    60% {
-        transform: translate3d(6px, 0, 0);
+    10% {
+        transform: translate(-8px, -8px) rotate(-1deg);
+    }
+    20% {
+        transform: translate(8px, 8px) rotate(1deg);
+    }
+    30% {
+        transform: translate(-8px, 6px);
+    }
+    40% {
+        transform: translate(8px, -6px);
+    }
+    50% {
+        transform: translate(-5px, 0);
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+
+/* 4. 배경 플래시 (번쩍!) */
+.flash-effect {
+    animation: flashBang 0.1s ease-out forwards;
+}
+
+@keyframes flashBang {
+    0% {
+        background-color: rgba(255, 255, 255, 0.8);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+/* 5. 보스 피격 시 찌그러짐 (Squash) */
+.boss-squash {
+    animation: squash 0.1s ease-in-out;
+}
+
+@keyframes squash {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1, 0.9);
+        filter: brightness(2);
+    } /* 납작해지고 밝아짐 */
+    100% {
+        transform: scale(1);
     }
 }
