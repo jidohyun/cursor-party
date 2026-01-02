@@ -147,6 +147,19 @@ Hooks.SoundControl = {
   },
 };
 
+Hooks.ChatScroll = {
+  mounted() {
+    this.scrollToBottom();
+  },
+  updated() {
+    this.scrollToBottom();
+  },
+  scrollToBottom() {
+    const chatBox = this.el;
+    chatBox.scrollTop = chatBox.scrollHeight;
+  },
+};
+
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");

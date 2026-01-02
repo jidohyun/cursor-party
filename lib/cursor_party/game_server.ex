@@ -25,6 +25,10 @@ defmodule CursorParty.GameServer do
   def logout(user_id), do: GenServer.cast(__MODULE__, {:logout, user_id})
   def get_all_profiles, do: GenServer.call(__MODULE__, :get_all_profiles)
 
+  def send_chat(user_id, name, message) do
+    GenServer.cast(__MODULE__, {:new_chat, user_id, name, message})
+  end
+
   # ============================================================================
   # Server Callbacks
   # ============================================================================
@@ -32,32 +36,30 @@ defmodule CursorParty.GameServer do
   @impl true
   def init(_) do
     {:ok, _table} = :dets.open_file(@db_filename, type: :set)
-
-    # [신규] 레벨 불러오기 (없으면 1)
     boss_level = lookup_dets(:boss_level, 1)
-
-    # HP 불러오기 (없으면 레벨 1 기준 HP)
-    default_hp = calculate_max_hp(boss_level)
-    hp = lookup_dets(:boss_hp, default_hp)
-
+    hp = lookup_dets(:boss_hp, 2000)
     winner = lookup_dets(:winner, nil)
     profiles = lookup_dets(:profiles, %{})
+
+    # [신규] 채팅 기록 불러오기 (없으면 빈 리스트)
+    chat_history = lookup_dets(:chat_history, [])
 
     {:ok,
      %{
        hp: hp,
-       # 상태에 레벨 추가
        boss_level: boss_level,
        winner: winner,
        last_hits: %{},
        banned_users: %{},
-       profiles: profiles
+       profiles: profiles,
+       # 상태에 추가
+       chat_history: chat_history
      }}
   end
 
   @impl true
   def handle_call(:get_state, _from, state) do
-    public_state = Map.drop(state, [:last_hits, :banned_users, :profiles])
+    public_state = Map.take(state, [:hp, :boss_level, :winner, :chat_history])
     {:reply, public_state, state}
   end
 
@@ -70,6 +72,30 @@ defmodule CursorParty.GameServer do
 
   @impl true
   def handle_call(:get_all_profiles, _from, state), do: {:reply, state.profiles, state}
+
+  @impl true
+  def handle_cast({:new_chat, user_id, name, message}, state) do
+    # 메시지 객체 생성
+    msg = %{
+      # 유니크 ID
+      id: System.unique_integer([:positive]),
+      user_id: user_id,
+      name: name,
+      # 50자 제한 (도배 방지)
+      text: String.slice(message, 0, 50),
+      timestamp: System.system_time(:millisecond)
+    }
+
+    # 최근 50개만 유지
+    new_history = [msg | state.chat_history] |> Enum.take(50)
+
+    # 파일 저장 (선택 사항: 재시작해도 채팅 남길거면 주석 해제)
+    # :dets.insert(@db_filename, {:chat_history, new_history})
+
+    Phoenix.PubSub.broadcast(CursorParty.PubSub, "cursor:lobby", {:chat_update, new_history})
+
+    {:noreply, %{state | chat_history: new_history}}
+  end
 
   @impl true
   def handle_cast({:register_profile, user_id, input_profile}, state) do
