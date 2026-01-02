@@ -240,12 +240,56 @@
     <% end %>
   <% end %>
 
-  <div class="absolute bottom-6 left-6 z-10 flex flex-col gap-2">
-    <div class="bg-black/50 backdrop-blur-md p-4 rounded-xl border border-white/10 text-gray-300 shadow-lg max-w-xs transition-opacity hover:opacity-100 opacity-60 hover:border-white/30">
-      <div class="font-bold text-white mb-2 flex items-center gap-2 border-b border-white/10 pb-2">
+  <div class="absolute bottom-6 left-6 z-40 flex flex-col gap-2 w-[300px] pointer-events-auto">
+    <div class="bg-black/60 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden flex flex-col h-[200px] transition-opacity duration-300 hover:opacity-100 opacity-80">
+      <div
+        id="chat-box"
+        phx-hook="ChatScroll"
+        class="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar text-xs font-medium"
+      >
+        <%= for msg <- Enum.reverse(@chat_messages) do %>
+          <div class="break-words leading-tight">
+            <span class={"font-bold " <> (if msg.user_id == @my_id, do: "text-yellow-400", else: "text-blue-300")}>
+              {msg.name}:
+            </span>
+            <span class="text-white text-opacity-90">{msg.text}</span>
+          </div>
+        <% end %>
+        <%= if @chat_messages == [] do %>
+          <div class="text-gray-500 italic text-center mt-10">
+            Say hello! 👋
+          </div>
+        <% end %>
+      </div>
+
+      <%= if @joined? do %>
+        <form
+          phx-submit="send-chat"
+          phx-change="validate-chat"
+          class="p-2 border-t border-white/10 bg-white/5"
+        >
+          <input
+            type="text"
+            name="msg"
+            value={@chat_input}
+            autocomplete="off"
+            placeholder="Type a message..."
+            class="w-full bg-black/30 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-yellow-500/50 transition-colors"
+            maxlength="50"
+          />
+        </form>
+      <% else %>
+        <div class="p-2 text-center text-xs text-gray-500 bg-black/20 border-t border-white/10">
+          Join to chat
+        </div>
+      <% end %>
+    </div>
+
+    <div class="bg-black/50 backdrop-blur-md p-3 rounded-xl border border-white/10 text-gray-300 shadow-lg transition-opacity hover:opacity-100 opacity-50 hover:border-white/30 text-xs">
+      <div class="font-bold text-white mb-1 flex items-center gap-2 border-b border-white/10 pb-1">
         <span>💡 How to Play</span>
       </div>
-      <ul class="text-sm space-y-1.5 list-disc list-inside opacity-90">
+      <ul class="space-y-1 list-disc list-inside opacity-90">
         <li>Move cursor to interact</li>
         <li>Click BOSS: <span class="text-red-400 font-bold">-1 HP</span></li>
         <li>Last Hit: <span class="text-yellow-400 font-bold">MVP 👑</span></li>

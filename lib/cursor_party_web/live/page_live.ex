@@ -33,8 +33,9 @@ defmodule CursorPartyWeb.PageLive do
       cursors: [],
       leaderboard: [],
       boss_hp: game_state.hp,
-      # [신규] 보스 레벨
       boss_level: Map.get(game_state, :boss_level, 1),
+      chat_messages: Map.get(game_state, :chat_history, []),
+      chat_input: "",
       winner: game_state.winner,
       my_id: user_id,
       joined?: false,
@@ -43,7 +44,6 @@ defmodule CursorPartyWeb.PageLive do
       form: to_form(%{"name" => "", "country" => "KR"}),
       alert_msg: nil,
       banned_until: nil,
-      # 딜량 통계만 유지
       my_damage: total_damage
     }
 
@@ -98,6 +98,21 @@ defmodule CursorPartyWeb.PageLive do
   # ============================================================================
   # 2. Handle Events
   # ============================================================================
+  def handle_event("validate-chat", %{"msg" => msg}, socket) do
+    {:noreply, assign(socket, chat_input: msg)}
+  end
+
+  def handle_event("send-chat", %{"msg" => msg}, socket) do
+    msg = String.trim(msg)
+
+    if socket.assigns.joined? and msg != "" do
+      GameServer.send_chat(socket.assigns.my_id, socket.assigns.my_name, msg)
+      # 입력창 비우기
+      {:noreply, assign(socket, chat_input: "")}
+    else
+      {:noreply, socket}
+    end
+  end
 
   def handle_event("join", %{"name" => name, "country" => country}, socket) do
     name = String.trim(name)
@@ -183,6 +198,10 @@ defmodule CursorPartyWeb.PageLive do
   # ============================================================================
   # 3. Handle Info
   # ============================================================================
+  def handle_info({:chat_update, history}, socket) do
+    # history는 최신순([new, old...])으로 오지만, 화면엔 과거->최신([old, new...])으로 뿌려야 하므로 뒤집음
+    {:noreply, assign(socket, chat_messages: history)}
+  end
 
   def handle_info(:tick, socket) do
     {:noreply, assign(socket, leaderboard: build_leaderboard())}
@@ -192,15 +211,27 @@ defmodule CursorPartyWeb.PageLive do
   def handle_info({:boss_update, new_hp, level, winner}, socket) do
     socket = assign(socket, boss_hp: new_hp, boss_level: level, winner: winner)
 
-    # 보스가 리셋(최대체력 복구)된 순간 = 승리 직후
     socket =
-      if winner && new_hp >= level * 2000 do
-        push_event(socket, "play-win-sound", %{})
+      if winner do
+        # 1. 보스 HP가 리셋되었는지 확인 (막타 친 순간)
+        if new_hp >= level * 2000 do
+          push_event(socket, "play-win-sound", %{})
+        end
+
+        # 2. [추가] 4초 뒤에 축하 메시지 지우기 예약
+        Process.send_after(self(), :clear_winner, 4000)
+
+        socket
       else
         socket
       end
 
     {:noreply, socket}
+  end
+
+  # [신규] 우승자 정보 초기화 (오버레이 닫기)
+  def handle_info(:clear_winner, socket) do
+    {:noreply, assign(socket, winner: nil)}
   end
 
   def handle_info({:auto_clicker_detected, name, banned_id}, socket) do
