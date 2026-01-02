@@ -77,10 +77,10 @@ defmodule CursorParty.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind cursor_party", "esbuild default"],
+      "assets.build": ["compile", "tailwind cursor_party", "esbuild cursor_party"],
       "assets.deploy": [
         "tailwind cursor_party --minify",
-        "esbuild default --minify",
+        "esbuild cursor_party --minify",
         "phx.digest"
       ],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
