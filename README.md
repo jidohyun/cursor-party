@@ -10,20 +10,17 @@
 
 [🇰🇷 Read in Korean](./README.ko.md)
 
----
 
 ## 🎮 Play Demo
 
 👉 **[Live Demo](https://cursor-party.koyeb.app)**
 _(Currently in Open Beta. The server is always open, so come join the raid!)_
 
----
 
 ## 📸 Screenshots
 
 ![Game Screenshot](https://via.placeholder.com/800x400?text=Gameplay+Screenshot+PlaceHolder)
 
----
 
 ## 💡 Introduction
 
@@ -37,7 +34,6 @@ Inspired by how **Discord** handles millions of concurrent users using **Elixir*
 - **Boss Raid System:** Synchronized Boss HP managed by Server-side state (GenServer).
 - **No Client-side Logic:** All real-time logic is handled by Phoenix LiveView, without complex JavaScript frameworks.
 
----
 
 ## 🛠 Tech Stack
 
@@ -46,7 +42,6 @@ Inspired by how **Discord** handles millions of concurrent users using **Elixir*
 - **Deployment:** Docker, Koyeb
 - **Architecture:** OTP (Open Telecom Platform) based distributed system
 
----
 
 ## 🚀 How to Run (Local)
 
@@ -78,7 +73,6 @@ Prerequisites: Elixir and Erlang must be installed.
 
 Now you can visit `localhost:4000` from your browser.
 
----
 
 ## 🤝 Contributing
 
