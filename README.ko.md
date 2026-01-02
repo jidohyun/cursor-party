@@ -16,12 +16,6 @@
 👉 **[Live Demo 보러가기](https://cursor-party.koyeb.app)**
 _(현재 Open Beta 상태입니다. 서버는 언제든 열려있으니 들어와서 보스를 때려주세요!)_
 
-
-## 📸 스크린샷
-
-![Game Screenshot](https://via.placeholder.com/800x400?text=Gameplay+Screenshot+PlaceHolder)
-
-
 ## 💡 프로젝트 소개
 
 **Cursor Party**는 접속한 모든 유저가 서로의 커서를 실시간으로 볼 수 있고, 협력하여 보스 몬스터를 처치하는 웹 게임입니다.
