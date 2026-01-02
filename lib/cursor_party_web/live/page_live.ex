@@ -15,27 +15,31 @@ defmodule CursorPartyWeb.PageLive do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(CursorParty.PubSub, @topic)
       Phoenix.PubSub.subscribe(CursorParty.PubSub, @boss_topic)
-      # 1초마다 리더보드 갱신
+      # 1초마다 틱 (골드 갱신, 리더보드, 자동사냥 동기화)
       :timer.send_interval(1000, self(), :tick)
     end
 
-    # DB에서 유저 정보 로드 (없으면 기본값)
+    # DB 로드
     saved_profile = if connected?(socket), do: GameServer.get_profile(user_id), else: nil
 
     # 내 스탯 초기화
     total_damage = saved_profile[:total_damage] || 0
     gold = saved_profile[:gold] || 0
     power = saved_profile[:power] || 1
+    # [신규] auto_damage 로드
+    my_auto = saved_profile[:auto_damage] || 0
     my_items = saved_profile[:items] || %{}
 
-    # 상점 카탈로그 로드 (GameServer에서 정의된 아이템 목록)
+    # 상점 카탈로그 로드
     shop_catalog = GameServer.get_shop_items()
 
-    # 게임 상태 로드 (HP, Level, Winner, Chat)
+    # 게임 상태 로드
     game_state =
       if connected?(socket),
         do: GameServer.get_state(),
         else: %{hp: 2000, boss_level: 1, winner: nil, chat_history: []}
+
+    my_skill_cd = saved_profile[:skill_cd] || %{}
 
     initial_assigns = %{
       cursors: [],
@@ -45,8 +49,7 @@ defmodule CursorPartyWeb.PageLive do
       boss_hp: game_state.hp,
       boss_level: Map.get(game_state, :boss_level, 1),
 
-      # 우승자 및 카운트다운
-      # [중요] 새로고침 시 멈춘 화면 방지를 위해 winner는 nil로 시작
+      # 우승자
       winner: nil,
       winner_countdown: nil,
 
@@ -61,26 +64,31 @@ defmodule CursorPartyWeb.PageLive do
       my_country: nil,
       form: to_form(%{"name" => "", "country" => "KR"}),
 
-      # 알림 및 제재
+      # 알림
       alert_msg: nil,
       banned_until: nil,
 
-      # 내 스탯 (실시간 반영용)
+      # 내 스탯
       my_damage: total_damage,
       my_gold: gold,
       my_power: power,
+      # 자동 대미지 (초당)
+      my_auto: my_auto,
+      # 보유 아이템 목록
       my_items: my_items,
+      #
+      my_skill_cd: my_skill_cd,
 
       # 상점 UI 상태
-      # 상점 모달 표시 여부
       show_shop: false,
-      # 상점 아이템 목록
+      # [신규] 상점 탭 (:weapon 또는 :skill)
+      active_shop_tab: :weapon,
       shop_catalog: shop_catalog
     }
 
     socket = assign(socket, initial_assigns)
 
-    # 저장된 프로필이 있다면 자동 로그인 & Presence 트래킹
+    # 자동 로그인 처리
     socket =
       if saved_profile do
         if connected?(socket) do
@@ -102,7 +110,6 @@ defmodule CursorPartyWeb.PageLive do
           my_country: saved_profile.raw_country
         )
       else
-        # 미가입 상태라도 커서는 보이게 (이름 없이)
         if connected?(socket) do
           Presence.track(self(), @topic, user_id, %{
             x: 50,
@@ -128,10 +135,10 @@ defmodule CursorPartyWeb.PageLive do
   end
 
   # ============================================================================
-  # 2. Handle Events (사용자 입력 처리)
+  # 2. Handle Events
   # ============================================================================
 
-  # 2-1. 게임 입장 (Join)
+  # 2-1. 게임 입장
   def handle_event("join", %{"name" => name, "country" => country}, socket) do
     name = String.trim(name)
 
@@ -140,7 +147,6 @@ defmodule CursorPartyWeb.PageLive do
       color = "#" <> Base.encode16(:crypto.strong_rand_bytes(3))
       flag = get_flag_emoji(country)
 
-      # 프로필 생성 (기존 스탯 유지)
       profile = %{
         name: name,
         country: flag,
@@ -149,6 +155,7 @@ defmodule CursorPartyWeb.PageLive do
         total_damage: socket.assigns.my_damage,
         gold: socket.assigns.my_gold,
         power: socket.assigns.my_power,
+        auto_damage: socket.assigns.my_auto,
         items: socket.assigns.my_items
       }
 
@@ -188,7 +195,6 @@ defmodule CursorPartyWeb.PageLive do
       }
     end)
 
-    # 로컬 스탯 초기화
     {:noreply,
      assign(socket,
        joined?: false,
@@ -197,14 +203,9 @@ defmodule CursorPartyWeb.PageLive do
        my_damage: 0,
        my_gold: 0,
        my_power: 1,
+       my_auto: 0,
        my_items: %{}
      )}
-  end
-
-  def handle_event("keydown", %{"key" => key}, socket) do
-    # 나중에 여기에 "if key == "1", do: ..." 같은 로직을 추가할 수 있습니다.
-    # 지금은 그냥 무시합니다.
-    {:noreply, socket}
   end
 
   # 2-3. 커서 이동
@@ -218,25 +219,19 @@ defmodule CursorPartyWeb.PageLive do
     {:noreply, socket}
   end
 
-  # 2-4. 보스 공격 (Hit) - 크리티컬 및 시각 효과 포함
+  # 2-4. 보스 공격
   def handle_event("hit-boss", _params, socket) do
     is_banned =
       if socket.assigns.banned_until,
         do: DateTime.diff(socket.assigns.banned_until, DateTime.utc_now()) > 0,
         else: false
 
-    # 카운트다운 중이거나 밴 상태면 공격 불가
     if socket.assigns.joined? and not is_banned and is_nil(socket.assigns.winner_countdown) do
-      # 서버에 공격 요청 (동기 호출로 결과 받음)
       case GameServer.hit(socket.assigns.my_id, socket.assigns.my_name) do
         {:ok, damage, is_crit} ->
-          # 내 화면 스탯 즉시 갱신
           socket = update(socket, :my_damage, &(&1 + damage))
           socket = update(socket, :my_gold, &(&1 + damage))
-
-          # JS로 대미지 정보 전송 -> 시각 효과(숫자 표시, 흔들림, 사운드) 실행
           socket = push_event(socket, "damage-effect", %{damage: damage, is_crit: is_crit})
-
           {:noreply, socket}
 
         _ ->
@@ -247,7 +242,7 @@ defmodule CursorPartyWeb.PageLive do
     end
   end
 
-  # 2-5. 상점 UI 제어 (열기/닫기)
+  # 2-5. 상점 UI 제어
   def handle_event("toggle-shop", _params, socket) do
     socket = push_event(socket, "play-shop-sound", %{})
     {:noreply, assign(socket, show_shop: !socket.assigns.show_shop)}
@@ -257,14 +252,19 @@ defmodule CursorPartyWeb.PageLive do
     {:noreply, assign(socket, show_shop: false)}
   end
 
-  # 2-6. 아이템 구매 (확장형 상점 로직)
+  # [신규] 상점 탭 변경
+  def handle_event("set-shop-tab", %{"tab" => tab_str}, socket) do
+    tab = String.to_existing_atom(tab_str)
+    {:noreply, assign(socket, active_shop_tab: tab)}
+  end
+
+  # 2-6. 아이템 구매 (안전한 패턴 매칭)
   def handle_event("buy-item", %{"id" => item_id}, socket) do
     if socket.assigns.joined? do
       item_atom = String.to_existing_atom(item_id)
 
-      # 결과값 패턴 매칭을 강화하여 오류 방지
       case GameServer.buy_item(socket.assigns.my_id, item_atom) do
-        # 1. 최신 버전 (자동 사냥 포함, 5개 리턴)
+        # 5개 리턴 (최신 서버)
         {:ok, new_gold, new_power, new_items, new_auto} ->
           socket = push_event(socket, "play-buy-sound", %{})
 
@@ -276,18 +276,18 @@ defmodule CursorPartyWeb.PageLive do
              my_auto: new_auto
            )}
 
-        # 2. 구 버전 호환 (자동 사냥 미포함, 4개 리턴) -> 이걸로 매칭될 가능성 높음
+        # 4개 리턴 (구버전 호환)
         {:ok, new_gold, new_power, new_items} ->
           socket = push_event(socket, "play-buy-sound", %{})
-          # my_auto는 기존 값 유지
           {:noreply, assign(socket, my_gold: new_gold, my_power: new_power, my_items: new_items)}
 
         {:error, :not_enough_gold} ->
           {:noreply, put_flash(socket, :error, "Not enough gold!")}
 
-        # 3. 디버깅용: 알 수 없는 응답이 오면 로그 출력
-        unexpected ->
-          IO.inspect(unexpected, label: "Buy Item Error")
+        {:error, :already_learned} ->
+          {:noreply, put_flash(socket, :error, "You already learned this skill!")}
+
+        _ ->
           {:noreply, socket}
       end
     else
@@ -311,39 +311,50 @@ defmodule CursorPartyWeb.PageLive do
   end
 
   # ============================================================================
-  # 3. Handle Info (서버 메시지 처리)
+  # 3. Handle Info
   # ============================================================================
 
-  # 3-1. 주기적 틱 (리더보드 갱신)
-  def handle_info(:tick, socket), do: {:noreply, assign(socket, leaderboard: build_leaderboard())}
+  def handle_info(:tick, socket) do
+    all_profiles = GameServer.get_all_profiles()
+    my_id = socket.assigns.my_id
+    my_profile = Map.get(all_profiles, my_id, %{})
 
-  # 3-2. 보스 상태 업데이트 (카운트다운 로직 포함)
+    new_gold = my_profile[:gold] || socket.assigns.my_gold
+    new_damage = my_profile[:total_damage] || socket.assigns.my_damage
+    new_skill_cd = my_profile[:skill_cd] || %{}
+
+    leaderboard = build_leaderboard_from_data(all_profiles)
+
+    {:noreply,
+     assign(socket,
+       leaderboard: leaderboard,
+       my_gold: new_gold,
+       my_damage: new_damage,
+       my_skill_cd: new_skill_cd
+     )}
+  end
+
+  # 3-2. 보스 상태 업데이트
   def handle_info({:boss_update, new_hp, level, winner}, socket) do
     socket = assign(socket, boss_hp: new_hp, boss_level: level)
 
     socket =
       if winner do
-        # 우승자가 생겼고, 아직 내 화면에서 처리가 안 됐다면 (중복 실행 방지)
         if socket.assigns.winner != winner do
-          # 승리 사운드
           push_event(socket, "play-win-sound", %{})
-
-          # 1초 뒤부터 카운트다운 타이머 시작
           Process.send_after(self(), :tick_winner_timer, 1000)
-
           assign(socket, winner: winner, winner_countdown: 5)
         else
           socket
         end
       else
-        # 우승자가 없으면 (보스 부활 상태) 초기화
         assign(socket, winner: nil, winner_countdown: nil)
       end
 
     {:noreply, socket}
   end
 
-  # 3-3. 카운트다운 타이머 (1초마다 감소)
+  # 3-3. 카운트다운
   def handle_info(:tick_winner_timer, socket) do
     current = socket.assigns.winner_countdown
 
@@ -351,23 +362,21 @@ defmodule CursorPartyWeb.PageLive do
       Process.send_after(self(), :tick_winner_timer, 1000)
       {:noreply, assign(socket, winner_countdown: current - 1)}
     else
-      # 0초가 되면 화면 치우기
       {:noreply, assign(socket, winner: nil, winner_countdown: nil)}
     end
   end
 
-  # 3-4. 안전장치: 혹시 모를 오버레이 제거
   def handle_info(:clear_winner, socket), do: {:noreply, assign(socket, winner: nil)}
 
-  # 3-5. 채팅 업데이트
+  # 3-4. 채팅 업데이트
   def handle_info({:chat_update, history}, socket) do
     socket = push_event(socket, "play-chat-sound", %{})
     {:noreply, assign(socket, chat_messages: history)}
   end
 
-  # 3-6. 오토클리커 감지
+  # 3-5. 오토클리커 감지
   def handle_info({:auto_clicker_detected, name, banned_id}, socket) do
-    msg = "#{name}님의 손놀림이 인간의 한계를 넘어섰습니다!\n시스템이 잠시 휴식을 권장합니다 😌"
+    msg = "#{name}님의 손놀림이 인간의 한계를 넘어섰습니다!\n잠시 휴식을 권장합니다 😌"
     Process.send_after(self(), :clear_alert, 5000)
 
     socket =
@@ -385,9 +394,16 @@ defmodule CursorPartyWeb.PageLive do
   def handle_info(:clear_alert, socket), do: {:noreply, assign(socket, alert_msg: nil)}
   def handle_info(:lift_ban, socket), do: {:noreply, assign(socket, banned_until: nil)}
 
-  # 3-7. 커서 위치 업데이트
+  # 3-6. 커서 위치
   def handle_info(%{event: "presence_diff"}, socket),
     do: {:noreply, assign(socket, cursors: list_present_cursors())}
+
+  # [신규] 스킬 발동 이펙트 리스너 (자동 스킬)
+  def handle_info({:skill_used, :thunder, _user_id, _dmg}, socket) do
+    # 모든 클라이언트에게 번개 이펙트 실행 요청
+    socket = push_event(socket, "global-effect", %{type: "thunder"})
+    {:noreply, socket}
+  end
 
   def handle_info({:disconnect, _}, socket), do: {:noreply, socket}
 
@@ -396,7 +412,7 @@ defmodule CursorPartyWeb.PageLive do
   end
 
   # ============================================================================
-  # Helpers (보조 함수들)
+  # Helpers
   # ============================================================================
 
   defp list_present_cursors do
@@ -410,11 +426,14 @@ defmodule CursorPartyWeb.PageLive do
     _ -> "🏳️"
   end
 
+  # 데이터 기반 리더보드 생성
   defp build_leaderboard do
-    present_users = Presence.list(@topic)
     all_profiles = GameServer.get_all_profiles()
+    build_leaderboard_from_data(all_profiles)
+  end
 
-    present_users
+  defp build_leaderboard_from_data(all_profiles) do
+    Presence.list(@topic)
     |> Enum.map(fn {user_id, entry} ->
       meta = entry.metas |> Enum.max_by(&(&1[:online_at] || 0))
       db_stats = Map.get(all_profiles, user_id, %{})
@@ -432,7 +451,6 @@ defmodule CursorPartyWeb.PageLive do
     |> Enum.sort_by(& &1.total_damage, :desc)
   end
 
-  # 레벨별 보스 스타일 정의
   def get_boss_style(level) do
     cond do
       level >= 30 ->
