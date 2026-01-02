@@ -2,10 +2,12 @@ defmodule CursorParty.GameServer do
   use GenServer
 
   @db_filename :cursor_party_db
-  @default_hp 999_999
+  # 기본 HP (이제 레벨에 따라 달라지므로 초기값만 의미 있음)
+  @base_hp_per_level 2000
   @cooldown_ms 100
   @human_limit_ms 50
   @ban_duration_ms 60_000
+  @max_level 30
 
   # ============================================================================
   # Client API
@@ -30,10 +32,27 @@ defmodule CursorParty.GameServer do
   @impl true
   def init(_) do
     {:ok, _table} = :dets.open_file(@db_filename, type: :set)
-    hp = lookup_dets(:boss_hp, @default_hp)
+
+    # [신규] 레벨 불러오기 (없으면 1)
+    boss_level = lookup_dets(:boss_level, 1)
+
+    # HP 불러오기 (없으면 레벨 1 기준 HP)
+    default_hp = calculate_max_hp(boss_level)
+    hp = lookup_dets(:boss_hp, default_hp)
+
     winner = lookup_dets(:winner, nil)
     profiles = lookup_dets(:profiles, %{})
-    {:ok, %{hp: hp, winner: winner, last_hits: %{}, banned_users: %{}, profiles: profiles}}
+
+    {:ok,
+     %{
+       hp: hp,
+       # 상태에 레벨 추가
+       boss_level: boss_level,
+       winner: winner,
+       last_hits: %{},
+       banned_users: %{},
+       profiles: profiles
+     }}
   end
 
   @impl true
@@ -42,9 +61,9 @@ defmodule CursorParty.GameServer do
     {:reply, public_state, state}
   end
 
+  # ... (기존 API 유지) ...
   @impl true
   def handle_call(:get_hp, _from, state), do: {:reply, state.hp, state}
-
   @impl true
   def handle_call({:get_profile, user_id}, _from, state),
     do: {:reply, Map.get(state.profiles, user_id), state}
@@ -55,12 +74,7 @@ defmodule CursorParty.GameServer do
   @impl true
   def handle_cast({:register_profile, user_id, input_profile}, state) do
     existing = Map.get(state.profiles, user_id, %{})
-    # [수정] 딜량만 유지하고 시간 관련 필드는 제거
-    merged_profile =
-      Map.merge(input_profile, %{
-        total_damage: existing[:total_damage] || 0
-      })
-
+    merged_profile = Map.merge(input_profile, %{total_damage: existing[:total_damage] || 0})
     new_profiles = Map.put(state.profiles, user_id, merged_profile)
     :dets.insert(@db_filename, {:profiles, new_profiles})
     {:noreply, %{state | profiles: new_profiles}}
@@ -101,14 +115,12 @@ defmodule CursorParty.GameServer do
           {:noreply, state}
 
         true ->
-          # 통계 업데이트 (딜량만)
           profile = Map.get(state.profiles, user_id)
 
           new_profiles =
             if profile do
               new_dmg = (profile[:total_damage] || 0) + 1
-              updated_profile = Map.put(profile, :total_damage, new_dmg)
-              p = Map.put(state.profiles, user_id, updated_profile)
+              p = Map.put(state.profiles, user_id, Map.put(profile, :total_damage, new_dmg))
               :dets.insert(@db_filename, {:profiles, p})
               p
             else
@@ -120,29 +132,40 @@ defmodule CursorParty.GameServer do
           new_last_hits = Map.put(state.last_hits, user_id, now)
 
           if new_hp <= 0 do
-            next_hp = @default_hp
+            # [신규] 보스 처치 시 레벨업 로직
+            # 최대 30레벨까지 증가. 30레벨에서 잡으면 다시 30레벨 (또는 1로 초기화하고 싶으면 1로 변경)
+            next_level =
+              if state.boss_level >= @max_level, do: state.boss_level, else: state.boss_level + 1
+
+            # 다음 레벨 HP 계산
+            next_hp = calculate_max_hp(next_level)
+
             :dets.insert(@db_filename, {:boss_hp, next_hp})
+            :dets.insert(@db_filename, {:boss_level, next_level})
             :dets.insert(@db_filename, {:winner, attacker_name})
 
+            # [수정] 브로드캐스트에 boss_level 추가
             Phoenix.PubSub.broadcast(
               CursorParty.PubSub,
               "game:boss",
-              {:boss_update, next_hp, attacker_name}
+              {:boss_update, next_hp, next_level, attacker_name}
             )
 
             {:noreply,
              %{
                state
                | hp: next_hp,
+                 boss_level: next_level,
                  winner: attacker_name,
                  last_hits: new_last_hits,
                  profiles: new_profiles
              }}
           else
+            # HP만 감소
             Phoenix.PubSub.broadcast(
               CursorParty.PubSub,
               "game:boss",
-              {:boss_update, new_hp, state.winner}
+              {:boss_update, new_hp, state.boss_level, state.winner}
             )
 
             {:noreply, %{state | hp: new_hp, last_hits: new_last_hits, profiles: new_profiles}}
@@ -159,5 +182,12 @@ defmodule CursorParty.GameServer do
       [{^key, val}] -> val
       [] -> default
     end
+  end
+
+  # [신규] 레벨별 최대 체력 계산 함수
+  defp calculate_max_hp(level) do
+    # 예: 1레벨=2000, 10레벨=20000, 30레벨=60000
+    # 더 어렵게 하고 싶으면 지수승(Math.pow) 등을 사용 가능
+    level * @base_hp_per_level
   end
 end

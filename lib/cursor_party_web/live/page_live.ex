@@ -15,20 +15,27 @@ defmodule CursorPartyWeb.PageLive do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(CursorParty.PubSub, @topic)
       Phoenix.PubSub.subscribe(CursorParty.PubSub, @boss_topic)
-      # 1초마다 리더보드(딜량 순위) 갱신용 틱은 유지
+      # 1초마다 리더보드 갱신 (딜량 순위용)
       :timer.send_interval(1000, self(), :tick)
     end
 
+    # 내 정보 가져오기 (시간 정보는 제거됨)
     saved_profile = if connected?(socket), do: GameServer.get_profile(user_id), else: nil
-
-    # [수정] 시간 관련 통계 제거
     total_damage = saved_profile[:total_damage] || 0
+
+    # 서버 상태 가져오기 (HP, Level, Winner)
+    game_state =
+      if connected?(socket),
+        do: GameServer.get_state(),
+        else: %{hp: 2000, boss_level: 1, winner: nil}
 
     initial_assigns = %{
       cursors: [],
       leaderboard: [],
-      boss_hp: 999_999,
-      winner: nil,
+      boss_hp: game_state.hp,
+      # [신규] 보스 레벨
+      boss_level: Map.get(game_state, :boss_level, 1),
+      winner: game_state.winner,
       my_id: user_id,
       joined?: false,
       my_name: nil,
@@ -36,12 +43,13 @@ defmodule CursorPartyWeb.PageLive do
       form: to_form(%{"name" => "", "country" => "KR"}),
       alert_msg: nil,
       banned_until: nil,
-      # [수정] 딜량만 남김
+      # 딜량 통계만 유지
       my_damage: total_damage
     }
 
     socket = assign(socket, initial_assigns)
 
+    # 저장된 프로필이 있다면 자동 로그인 처리
     socket =
       if saved_profile do
         if connected?(socket) do
@@ -53,7 +61,6 @@ defmodule CursorPartyWeb.PageLive do
             country: saved_profile.raw_country,
             flag: saved_profile.country,
             color: saved_profile.color,
-            # online_at은 멀티탭 방지용으로 필수 (유지)
             online_at: System.system_time(:millisecond)
           })
         end
@@ -79,17 +86,12 @@ defmodule CursorPartyWeb.PageLive do
         socket
       end
 
-    game_state =
-      if connected?(socket), do: GameServer.get_state(), else: %{hp: 999_999, winner: nil}
-
     leaderboard = if connected?(socket), do: build_leaderboard(), else: []
 
     {:ok,
      assign(socket,
        cursors: list_present_cursors(),
-       leaderboard: leaderboard,
-       boss_hp: game_state.hp,
-       winner: game_state.winner
+       leaderboard: leaderboard
      )}
   end
 
@@ -105,7 +107,7 @@ defmodule CursorPartyWeb.PageLive do
       color = "#" <> Base.encode16(:crypto.strong_rand_bytes(3))
       flag = get_flag_emoji(country)
 
-      # [수정] 시간 제거
+      # 프로필 생성 (딜량 유지)
       profile = %{
         name: name,
         country: flag,
@@ -134,6 +136,7 @@ defmodule CursorPartyWeb.PageLive do
 
   def handle_event("logout", _params, socket) do
     user_id = socket.assigns.my_id
+
     GameServer.logout(user_id)
 
     Presence.update(self(), @topic, user_id, fn meta ->
@@ -149,7 +152,6 @@ defmodule CursorPartyWeb.PageLive do
       }
     end)
 
-    # [수정] 시간 초기화 제거, 딜량만 초기화
     {:noreply, assign(socket, joined?: false, my_name: nil, my_country: nil, my_damage: 0)}
   end
 
@@ -171,6 +173,7 @@ defmodule CursorPartyWeb.PageLive do
 
     if socket.assigns.joined? and not is_banned do
       GameServer.hit(socket.assigns.my_id, socket.assigns.my_name)
+      # 내 화면 딜량 즉시 업데이트
       {:noreply, update(socket, :my_damage, &(&1 + 1))}
     else
       {:noreply, socket}
@@ -182,11 +185,23 @@ defmodule CursorPartyWeb.PageLive do
   # ============================================================================
 
   def handle_info(:tick, socket) do
-    # 1초마다 리더보드(딜량 최신화)만 갱신
     {:noreply, assign(socket, leaderboard: build_leaderboard())}
   end
 
-  # auto_save 핸들러 제거됨
+  # [수정] 보스 업데이트 (HP, Level, Winner 수신 + 승리 사운드 트리거)
+  def handle_info({:boss_update, new_hp, level, winner}, socket) do
+    socket = assign(socket, boss_hp: new_hp, boss_level: level, winner: winner)
+
+    # 보스가 리셋(최대체력 복구)된 순간 = 승리 직후
+    socket =
+      if winner && new_hp >= level * 2000 do
+        push_event(socket, "play-win-sound", %{})
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
 
   def handle_info({:auto_clicker_detected, name, banned_id}, socket) do
     msg = "#{name}님의 손놀림이 인간의 한계를 넘어섰습니다!\n시스템이 잠시 휴식을 권장합니다 😌"
@@ -209,9 +224,6 @@ defmodule CursorPartyWeb.PageLive do
 
   def handle_info(%{event: "presence_diff"}, socket),
     do: {:noreply, assign(socket, cursors: list_present_cursors())}
-
-  def handle_info({:boss_update, new_hp, winner}, socket),
-    do: {:noreply, assign(socket, boss_hp: new_hp, winner: winner)}
 
   def handle_info({:disconnect, _}, socket), do: {:noreply, socket}
 
@@ -236,6 +248,7 @@ defmodule CursorPartyWeb.PageLive do
     _ -> "🏳️"
   end
 
+  # 리더보드: 딜량(total_damage) 기준 정렬
   defp build_leaderboard do
     present_users = Presence.list(@topic)
     all_profiles = GameServer.get_all_profiles()
@@ -257,5 +270,66 @@ defmodule CursorPartyWeb.PageLive do
     end)
     |> Enum.filter(& &1.joined?)
     |> Enum.sort_by(& &1.total_damage, :desc)
+  end
+
+  # [신규] 레벨별 보스 스타일 정의 함수 (HTML에서 호출됨)
+  def get_boss_style(level) do
+    cond do
+      level >= 30 ->
+        %{
+          color: "from-gray-900 via-purple-900 to-black",
+          border: "border-purple-500",
+          emoji: "👑",
+          name: "GOD KING"
+        }
+
+      level >= 25 ->
+        %{
+          color: "from-red-900 via-black to-red-900",
+          border: "border-red-600",
+          emoji: "👿",
+          name: "DEMON LORD"
+        }
+
+      level >= 20 ->
+        %{
+          color: "from-yellow-600 via-yellow-800 to-yellow-600",
+          border: "border-yellow-400",
+          emoji: "🐉",
+          name: "GOLD DRAGON"
+        }
+
+      level >= 15 ->
+        %{
+          color: "from-purple-600 to-indigo-800",
+          border: "border-purple-400",
+          emoji: "👻",
+          name: "ELDER GHOST"
+        }
+
+      level >= 10 ->
+        %{
+          color: "from-blue-600 to-cyan-800",
+          border: "border-cyan-400",
+          emoji: "🐺",
+          name: "DIRE WOLF"
+        }
+
+      level >= 5 ->
+        %{
+          color: "from-red-600 to-red-800",
+          border: "border-red-400/50",
+          emoji: "👹",
+          name: "ORC WARRIOR"
+        }
+
+      true ->
+        %{
+          color: "from-green-600 to-emerald-800",
+          border: "border-green-400",
+          emoji: "🦠",
+          name: "SLIME BOSS"
+        }
+    end
   end
 end
