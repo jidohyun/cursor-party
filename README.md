@@ -16,12 +16,6 @@
 👉 **[Live Demo](https://cursor-party.koyeb.app)**
 _(Currently in Open Beta. The server is always open, so come join the raid!)_
 
-
-## 📸 Screenshots
-
-![Game Screenshot](https://via.placeholder.com/800x400?text=Gameplay+Screenshot+PlaceHolder)
-
-
 ## 💡 Introduction
 
 **Cursor Party** is a massive multiplayer browser game where every user's cursor is visible in real-time, and players cooperate to defeat a boss monster.
