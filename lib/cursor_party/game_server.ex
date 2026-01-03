@@ -1,77 +1,35 @@
+Elixir
+
 defmodule CursorParty.GameServer do
   use GenServer
   alias CursorParty.Repo
   alias CursorParty.Schema.{Profile, GameState}
-  # import Ecto.Query  <-- 사용하지 않으므로 제거 (Warning 해결)
+  # [핵심] Core 모듈 사용
+  alias CursorParty.GameCore
 
-  # ============================================================================
-  # 상수
-  # ============================================================================
-  @base_hp_per_level 2500
+  # 상수 정의 최소화 (설정값 정도만 남김)
   @cooldown_ms 50
   @human_limit_ms 15
   @ban_duration_ms 60_000
-  @max_level 999_999
-
-  @shop_items %{
-    sword: %{
-      id: :sword,
-      name: "Iron Sword",
-      icon: "🗡️",
-      desc: "+1 Click Damage",
-      base_cost: 100,
-      cost_factor: 1.5,
-      type: :power,
-      value: 1,
-      category: :weapon
-    },
-    axe: %{
-      id: :axe,
-      name: "Battle Axe",
-      icon: "🪓",
-      desc: "+5 Click Damage",
-      base_cost: 1000,
-      cost_factor: 1.6,
-      type: :power,
-      value: 5,
-      category: :weapon
-    },
-    legend: %{
-      id: :legend,
-      name: "Excalibur",
-      icon: "🌟",
-      desc: "+50 Click Damage",
-      base_cost: 10000,
-      cost_factor: 2.0,
-      type: :power,
-      value: 50,
-      category: :weapon
-    },
-    skill_thunder: %{
-      id: :skill_thunder,
-      name: "Grimoire: Thunderbolt",
-      icon: "⚡",
-      desc: "Auto-cast massive damage every 30s",
-      base_cost: 2000,
-      cost_factor: 1.0,
-      type: :skill,
-      value: 0,
-      category: :skill
-    }
-  }
 
   # ============================================================================
-  # Client API
+  # Client API (변경 없음)
   # ============================================================================
   def start_link(_), do: GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   def hit(user_id, attacker_name), do: GenServer.call(__MODULE__, {:hit, user_id, attacker_name})
   def buy_item(user_id, item_id), do: GenServer.call(__MODULE__, {:buy_item, user_id, item_id})
-  def get_shop_items, do: @shop_items
+  # [변경] Core에서 가져옴
+  def get_shop_items, do: GameCore.get_shop_items()
   def get_state, do: GenServer.call(__MODULE__, :get_state)
   def get_hp, do: GenServer.call(__MODULE__, :get_hp)
   def get_profile(user_id), do: GenServer.call(__MODULE__, {:get_profile, user_id})
   def get_all_profiles, do: GenServer.call(__MODULE__, :get_all_profiles)
   def get_admin_stats, do: GenServer.call(__MODULE__, :get_admin_stats)
+
+  def create_transfer_code(user_id),
+    do: GenServer.call(__MODULE__, {:create_transfer_code, user_id})
+
+  def redeem_transfer_code(code), do: GenServer.call(__MODULE__, {:redeem_transfer_code, code})
 
   def register_profile(user_id, profile),
     do: GenServer.cast(__MODULE__, {:register_profile, user_id, profile})
@@ -92,7 +50,7 @@ defmodule CursorParty.GameServer do
     boss_data =
       case Repo.get_by(GameState, key: "boss") do
         nil -> %{"hp" => 2000, "level" => 1, "winner" => nil}
-        record -> record.value
+        record -> Map.put(record.value, "winner", nil)
       end
 
     profiles =
@@ -101,18 +59,22 @@ defmodule CursorParty.GameServer do
         items = string_keys_to_atoms(p.items)
         skill_cd = string_keys_to_atoms(p.skill_cd)
 
+        # [변경] Core를 이용해 스탯 계산
+        stats = GameCore.calculate_stats(items)
+
         {p.id,
          %{
            name: p.name,
            gold: p.gold,
+           # 저장된 power를 쓰지만, 나중엔 items 기반으로 재계산하는게 더 안전함
            power: p.power,
            total_damage: p.total_damage,
            items: items,
-           skill_cd: skill_cd,
-           auto_damage: calculate_auto_damage(items)
+           skill_cd: skill_cd
          }}
       end)
 
+    # ... (daily_stats, chat_history 로딩 로직은 동일) ...
     daily_stats =
       case Repo.get_by(GameState, key: "daily_stats") do
         nil -> %{}
@@ -137,7 +99,8 @@ defmodule CursorParty.GameServer do
        chat_history: chat_history,
        daily_stats: daily_stats,
        last_hits: %{},
-       banned_users: %{}
+       banned_users: %{},
+       transfer_codes: %{}
      }}
   end
 
@@ -155,6 +118,12 @@ defmodule CursorParty.GameServer do
   end
 
   @impl true
+  def handle_info(:save_db, state) do
+    Task.start(fn -> save_everything(state) end)
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info(:tick_auto_attack, state) do
     now = System.system_time(:millisecond)
 
@@ -167,6 +136,7 @@ defmodule CursorParty.GameServer do
 
         {skill_dmg, new_cds} =
           if has_thunder and now >= ready_at do
+            # [참고] 이 공식도 나중에 Core로 뺄 수 있음
             dmg = p[:power] * 20 + 50
 
             Phoenix.PubSub.broadcast(
@@ -197,45 +167,58 @@ defmodule CursorParty.GameServer do
       end)
 
     if total_dmg > 0 do
-      new_hp = state.hp - total_dmg
-
-      final_state =
-        if new_hp <= 0 do
-          next_lvl =
-            if state.boss_level >= @max_level, do: state.boss_level, else: state.boss_level + 1
-
-          next_hp = next_lvl * @base_hp_per_level
-
-          Phoenix.PubSub.broadcast(
-            CursorParty.PubSub,
-            "game:boss",
-            {:boss_update, next_hp, next_lvl, "Idle Army"}
-          )
-
-          %{
-            state
-            | hp: next_hp,
-              boss_level: next_lvl,
-              winner: "Idle Army",
-              profiles: updated_profiles
-          }
-        else
-          Phoenix.PubSub.broadcast(
-            CursorParty.PubSub,
-            "game:boss",
-            {:boss_update, new_hp, state.boss_level, nil}
-          )
-
-          %{state | hp: new_hp, profiles: updated_profiles}
-        end
-
-      {:noreply, final_state}
+      apply_damage_to_boss(state, total_dmg, nil, updated_profiles)
     else
       {:noreply, state}
     end
   end
 
   # --- Handle Call (순서 중요) ---
+
+  @impl true
+  def handle_call({:create_transfer_code, user_id}, _from, state) do
+    code = Integer.to_string(:rand.uniform(900_000) + 100_000)
+    Process.send_after(self(), {:expire_code, code}, 300_000)
+    new_codes = Map.put(state.transfer_codes, code, user_id)
+    {:reply, {:ok, code}, %{state | transfer_codes: new_codes}}
+  end
+
+  @impl true
+  def handle_call({:redeem_transfer_code, code}, _from, state) do
+    case Map.get(state.transfer_codes, code) do
+      nil ->
+        {:reply, {:error, :invalid_code}, state}
+
+      target_uuid ->
+        new_codes = Map.delete(state.transfer_codes, code)
+        {:reply, {:ok, target_uuid}, %{state | transfer_codes: new_codes}}
+    end
+  end
+
+  @impl true
+  def handle_info(:start_new_round, state) do
+    IO.puts("⚔️ [New Round] 새로운 보스 전투 시작!")
+
+    # 1. 승리자(winner) 초기화 -> 이제 hit 가능!
+    new_state = %{state | winner: nil}
+
+    # 2. 클라이언트에게 "전투 시작!" 알림 (승리 모달 닫힘)
+    Phoenix.PubSub.broadcast(
+      CursorParty.PubSub,
+      "game:boss",
+      {:boss_update, state.hp, state.boss_level, nil}
+    )
+
+    # 3. DB에도 winner가 없는 상태로 저장
+    Task.start(fn -> save_everything(new_state) end)
+
+    {:noreply, new_state}
+  end
+
+  @impl true
+  def handle_info({:expire_code, code}, state) do
+    {:noreply, %{state | transfer_codes: Map.delete(state.transfer_codes, code)}}
+  end
 
   @impl true
   def handle_call(:get_state, _from, state) do
@@ -251,7 +234,6 @@ defmodule CursorParty.GameServer do
 
   @impl true
   def handle_call(:get_all_profiles, _from, state), do: {:reply, state.profiles, state}
-
   @impl true
   def handle_call(:get_admin_stats, _from, state) do
     daily =
@@ -273,90 +255,56 @@ defmodule CursorParty.GameServer do
   @impl true
   def handle_call({:buy_item, user_id, item_id}, _from, state) do
     profile = Map.get(state.profiles, user_id)
-    item_def = @shop_items[item_id]
 
-    if profile && item_def do
-      current_gold = profile[:gold] || 0
-      user_items = profile[:items] || %{}
-      current_level = Map.get(user_items, item_id, 0)
-
-      if item_def.type == :skill and current_level >= 1 do
-        {:reply, {:error, :already_learned}, state}
-      else
-        cost = floor(item_def.base_cost * :math.pow(item_def.cost_factor, current_level))
-
-        if current_gold >= cost do
-          new_gold = current_gold - cost
-          new_level = current_level + 1
-          new_user_items = Map.put(user_items, item_id, new_level)
-          new_stats = calculate_stats(new_user_items)
+    if profile do
+      case GameCore.try_buy_item(profile[:gold] || 0, profile[:items] || %{}, item_id) do
+        {:ok, new_gold, new_items, _new_level} ->
+          new_stats = GameCore.calculate_stats(new_items)
 
           updated_profile =
             Map.merge(profile, %{
               gold: new_gold,
-              items: new_user_items,
-              power: new_stats.power,
-              auto_damage: new_stats.auto,
-              skill_cd: profile[:skill_cd] || %{}
+              items: new_items,
+              power: new_stats.power
             })
 
           new_profiles = Map.put(state.profiles, user_id, updated_profile)
 
-          {:reply, {:ok, new_gold, new_stats.power, new_user_items, new_stats.auto},
-           %{state | profiles: new_profiles}}
-        else
-          {:reply, {:error, :not_enough_gold}, state}
-        end
+          {:reply, {:ok, new_gold, new_stats.power, new_items}, %{state | profiles: new_profiles}}
+
+        {:error, reason} ->
+          {:reply, {:error, reason}, state}
       end
     else
-      {:reply, {:error, :invalid_item}, state}
+      {:reply, {:error, :profile_not_found}, state}
     end
   end
 
   @impl true
   def handle_call({:hit, user_id, attacker_name}, _from, state) do
-    # [수정] monotonic_time -> system_time (재시작해도 시간 오류 안 나게 변경)
     now = System.system_time(:millisecond)
-
-    # 1. 밴 확인
     ban_release = Map.get(state.banned_users, user_id, 0)
 
-    if now < ban_release do
-      # 남은 시간 계산 (로그용)
-      remaining = ban_release - now
-      IO.puts("🚫 [Hit 거절] #{user_id} 밴 됨. 남은 시간: #{remaining}ms")
-      {:reply, {:error, :banned}, state}
+    if state.winner do
+      {:reply, {:error, :boss_dead}, state}
     else
-      # [수정] system_time 기준으로 변경
-      last_hit = Map.get(state.last_hits, user_id, 0)
-      diff = now - last_hit
+      cond do
+        now < ban_release ->
+          {:reply, {:error, :banned}, state}
 
-      # 2. 오토클리커 감지
-      if diff < @human_limit_ms do
-        IO.puts("🤖 [Hit 거절] 오토 의심! 간격: #{diff}ms")
-
-        # 1분 밴
-        new_bans = Map.put(state.banned_users, user_id, now + @ban_duration_ms)
-
-        Phoenix.PubSub.broadcast(
-          CursorParty.PubSub,
-          "cursor:lobby",
-          {:auto_clicker_detected, attacker_name, user_id}
-        )
-
-        {:reply, {:error, :ratelimit}, %{state | banned_users: new_bans}}
-      else
-        # 3. 쿨타임 확인
-        if diff <= @cooldown_ms do
+        is_cooldown?(state, user_id, now) ->
           {:reply, {:error, :cooldown}, state}
-        else
-          # --- 공격 성공 ---
 
+        true ->
+          # --- 실제 타격 처리 ---
           profile = Map.get(state.profiles, user_id)
-          base_power = if profile, do: profile[:power] || 1, else: 1
 
-          is_crit = :rand.uniform(100) <= 15
-          damage = if is_crit, do: base_power * 2, else: base_power
+          # 1. 아이템 기반 스탯 계산
+          user_items = if profile, do: profile[:items] || %{}, else: %{}
+          stats = GameCore.calculate_stats(user_items)
+
+          # 2. 데미지 계산 (stats 맵 전체를 넘김)
+          {damage, is_crit} = GameCore.calculate_hit(stats)
 
           new_profiles =
             if profile do
@@ -371,46 +319,15 @@ defmodule CursorParty.GameServer do
               state.profiles
             end
 
-          new_hp = state.hp - damage
           new_hits = Map.put(state.last_hits, user_id, now)
 
-          # 2. 보스 처치 로직
-          if new_hp <= 0 do
-            next_lvl =
-              if state.boss_level >= @max_level, do: state.boss_level, else: state.boss_level + 1
+          # 보스 데미지 적용 및 상태 업데이트 공통 함수 호출
+          {:noreply, new_state} = apply_damage_to_boss(state, damage, attacker_name, new_profiles)
 
-            next_hp = next_lvl * @base_hp_per_level
+          # last_hits 업데이트는 별도로 반영
+          final_state = %{new_state | last_hits: new_hits}
 
-            Phoenix.PubSub.broadcast(
-              CursorParty.PubSub,
-              "game:boss",
-              {:boss_update, next_hp, next_lvl, attacker_name}
-            )
-
-            # [선택] 보스 처치는 중요한 이벤트니 이때만 즉시 저장해도 됩니다.
-            # 하지만 성능을 위해 이것도 메모리만 바꾸고 나중에 저장해도 됩니다.
-            # 여기서는 즉시 저장을 뺍니다. (save_db가 알아서 할 것임)
-
-            {:reply, {:ok, damage, is_crit},
-             %{
-               state
-               | hp: next_hp,
-                 boss_level: next_lvl,
-                 winner: attacker_name,
-                 last_hits: new_hits,
-                 profiles: new_profiles
-             }}
-          else
-            Phoenix.PubSub.broadcast(
-              CursorParty.PubSub,
-              "game:boss",
-              {:boss_update, new_hp, state.boss_level, nil}
-            )
-
-            {:reply, {:ok, damage, is_crit},
-             %{state | hp: new_hp, last_hits: new_hits, profiles: new_profiles}}
-          end
-        end
+          {:reply, {:ok, damage, is_crit}, final_state}
       end
     end
   end
@@ -419,6 +336,7 @@ defmodule CursorParty.GameServer do
 
   @impl true
   def handle_cast({:register_profile, user_id, profile}, state) do
+    # ... (기존과 동일) ...
     existing = Map.get(state.profiles, user_id, %{})
 
     merged =
@@ -435,14 +353,13 @@ defmodule CursorParty.GameServer do
   end
 
   @impl true
-  def handle_cast({:logout, user_id}, state) do
-    {:noreply, %{state | profiles: Map.delete(state.profiles, user_id)}}
-  end
+  def handle_cast({:logout, user_id}, state),
+    do: {:noreply, %{state | profiles: Map.delete(state.profiles, user_id)}}
 
   @impl true
   def handle_cast({:new_chat, user_id, name, msg}, state) do
+    # ... (기존과 동일) ...
     new_msg = %{
-      # 유니크 ID
       "id" => :rand.uniform(1_000_000),
       "user_id" => user_id,
       "name" => name,
@@ -451,9 +368,7 @@ defmodule CursorParty.GameServer do
     }
 
     new_history = [new_msg | state.chat_history] |> Enum.take(50)
-
     Phoenix.PubSub.broadcast(CursorParty.PubSub, "cursor:lobby", {:chat_update, new_history})
-
     {:noreply, %{state | chat_history: new_history}}
   end
 
@@ -467,6 +382,52 @@ defmodule CursorParty.GameServer do
   end
 
   # --- Helpers ---
+  defp is_cooldown?(state, user_id, now) do
+    last_hit = Map.get(state.last_hits, user_id, 0)
+    now - last_hit <= @cooldown_ms
+  end
+
+  # [공통 함수] 보스에게 데미지 적용 및 레벨업 처리
+  defp apply_damage_to_boss(state, damage, winner_name, updated_profiles) do
+    new_hp = state.hp - damage
+
+    if new_hp <= 0 do
+      # 1. 다음 레벨 정보 계산
+      next_lvl = state.boss_level + 1
+      next_hp = GameCore.calculate_boss_hp(next_lvl)
+      real_winner = winner_name || "Idle Army"
+
+      # 2. 클라이언트에게 "보스 죽음! 승리자는 누구!" 알림
+      Phoenix.PubSub.broadcast(
+        CursorParty.PubSub,
+        "game:boss",
+        {:boss_update, next_hp, next_lvl, real_winner}
+      )
+
+      # 3. [핵심 추가] 5초(5000ms) 뒤에 "새 라운드 시작" 메시지를 나 자신에게 보냄
+      Process.send_after(self(), :start_new_round, 5000)
+
+      # 4. 상태 업데이트 (winner 설정됨 -> 공격 차단 시작)
+      {:noreply,
+       %{
+         state
+         | hp: next_hp,
+           boss_level: next_lvl,
+           # 승리자가 있으므로 hit 함수가 에러를 뱉음 (정상)
+           winner: real_winner,
+           profiles: updated_profiles
+       }}
+    else
+      # 보스 생존 시
+      Phoenix.PubSub.broadcast(
+        CursorParty.PubSub,
+        "game:boss",
+        {:boss_update, new_hp, state.boss_level, nil}
+      )
+
+      {:noreply, %{state | hp: new_hp, profiles: updated_profiles}}
+    end
+  end
 
   defp upsert_game_state(key, value) do
     %GameState{}
@@ -506,20 +467,6 @@ defmodule CursorParty.GameServer do
 
     IO.puts("💾 [AutoSave] 데이터베이스 저장 완료")
   end
-
-  defp calculate_stats(items) do
-    Enum.reduce(@shop_items, %{power: 1, auto: 0}, fn {k, def}, acc ->
-      lvl = Map.get(items, k, 0)
-
-      case def.type do
-        :power -> Map.put(acc, :power, acc.power + lvl * def.value)
-        :auto -> Map.put(acc, :auto, acc.auto + lvl * def.value)
-        _ -> acc
-      end
-    end)
-  end
-
-  defp calculate_auto_damage(items), do: calculate_stats(items).auto
 
   defp string_keys_to_atoms(nil), do: %{}
 

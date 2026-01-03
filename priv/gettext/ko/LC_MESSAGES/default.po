@@ -1,0 +1,793 @@
+## This file is a PO Template file.
+##
+## "msgid"s here are often extracted from source code.
+## Add new messages manually only if they're dynamic
+## messages that can't be statically extracted.
+##
+## Run "mix gettext.extract" to bring this file up to
+## date. Leave "msgstr"s empty as changing them here has no
+## effect: edit them in PO (.po) files instead.
+#
+msgid ""
+msgstr ""
+
+# 칭호 설정
+
+msgid " (Ascended)"
+msgstr " (승천)"
+
+msgid " (God)"
+msgstr " (신)"
+
+msgid " (Void)"
+msgstr " (공허)"
+
+msgid " (Eternal)"
+msgstr " (불멸)"
+
+msgid "G"
+msgstr "원"
+
+# -----------------
+# 미물 설정
+
+msgid "Cell"
+msgstr "코로나"
+
+msgid "Worm"
+msgstr "벌써2026년이지렁이"
+
+msgid "Fly"
+msgstr "머리아파리"
+
+msgid "Mosquito"
+msgstr "티모는귀엽모기"
+
+msgid "Ant"
+msgstr "밥알이몇개미"
+
+msgid "Cockroach"
+msgstr "누가바퀴벌레"
+
+msgid "Snail"
+msgstr "터보엔진달팽이"
+
+msgid "Ladybug"
+msgstr "교회다니는무당벌레"
+
+msgid "Caterpillar"
+msgstr "아빠볼래애벌레"
+
+msgid "Butterfly"
+msgstr "카나비"
+
+# -----------------
+# 소동물 설정
+
+msgid "Mouse"
+msgstr "괴물쥐"
+
+msgid "Hamster"
+msgstr "부대찌개햄스터"
+
+msgid "Rabbit"
+msgstr "빗살무늬토끼"
+
+msgid "Chipmunk"
+msgstr "파카"
+
+msgid "Hedgehog"
+msgstr "람머스"
+
+msgid "Bat"
+msgstr "섞박쥐"
+
+msgid "Snake"
+msgstr "카시오페아"
+
+msgid "Lizard"
+msgstr "도레미파솔라시도마뱀"
+
+msgid "Frog"
+msgstr "개구린개구리"
+
+msgid "Turtle"
+msgstr "토끼간빼먹은거북이"
+
+# -----------------
+# 가축 야수 설정
+
+msgid "Chicken"
+msgstr "황금올리브"
+
+msgid "Duck"
+msgstr "오리아나"
+
+msgid "Pig"
+msgstr "태수"
+
+msgid "Sheep"
+msgstr "머양ㅎㅎ"
+
+msgid "Goat"
+msgstr "대상혁"
+
+msgid "Dog"
+msgstr "나서스"
+
+msgid "Cat"
+msgstr "니달리"
+
+msgid "Ox"
+msgstr "이게무슨상황소"
+
+msgid "Horse"
+msgstr "시말서"
+
+msgid "Buffalo"
+msgstr "물소"
+
+# -----------------
+# 맹수
+
+msgid "Boar"
+msgstr "멧태수"
+
+msgid "Wolf"
+msgstr "정월대보름늑대"
+
+msgid "Fox"
+msgstr "책먹는여우"
+
+msgid "Leopard"
+msgstr "리치베인나온니달리"
+
+msgid "Tiger"
+msgstr "풀템니달리"
+
+msgid "Lion"
+msgstr "엔비디아사자"
+
+msgid "Gorilla"
+msgstr "원고투고쓰리고릴라"
+
+msgid "Bear"
+msgstr "볼리베어"
+
+msgid "Crocodile"
+msgstr "레넥톤"
+
+msgid "Rhino"
+msgstr "비트코인뿔소"
+
+# -----------------
+# 심해 고대생물
+
+msgid "Shark"
+msgstr "밥먹자(피즈)"
+
+msgid "Whale"
+msgstr "술고래"
+
+msgid "Kraken"
+msgstr "일라오이"
+
+msgid "Giant Squid"
+msgstr "풀템일라오이"
+
+msgid "Scorpion"
+msgstr "스카너(신챔)"
+
+msgid "Tarantula"
+msgstr "엘리스"
+
+msgid "T-Rex"
+msgstr "티라노사우루스"
+
+msgid "Brachiosaurus"
+msgstr "브라키오사우루스"
+
+msgid "Mammoth"
+msgstr "매머드"
+
+msgid "Dragon Head"
+msgstr "엔더드래곤머리"
+
+# -----------------
+# 몬스터
+
+msgid "Goblin"
+msgstr "우로코다키 사콘지(귀*의칼날)"
+
+msgid "Oni"
+msgstr "요네"
+
+msgid "Ghost"
+msgstr "마늘먹은유령"
+
+msgid "Skeleton"
+msgstr "골격근량60kg해골"
+
+msgid "Alien"
+msgstr "호나우지뉴"
+
+msgid "Invader"
+msgstr "버그가아니고기능입니다"
+
+msgid "Robot"
+msgstr "ChatGPT"
+
+msgid "Zombie"
+msgstr "햇빛면역좀비"
+
+msgid "Vampire"
+msgstr "블라디미르"
+
+msgid "Genie"
+msgstr "소원안들어주는지니"
+
+# -----------------
+# 판타지
+
+msgid "Unicorn"
+msgstr "세바스찬(렐이타고있는말이름)"
+
+msgid "Pegasus"
+msgstr "못나는페가수스"
+
+msgid "Griffin"
+msgstr "발로(퀸)"
+
+msgid "Wyvern"
+msgstr "드래곤볼신룡"
+
+msgid "Elder Dragon"
+msgstr "엔더드래곤"
+
+msgid "Ice Golem"
+msgstr "1000도얼음"
+
+msgid "Fire Elemental"
+msgstr "브랜드"
+
+msgid "Stone Giant"
+msgstr "기가채드"
+
+msgid "Titan"
+msgstr "뭐"
+
+msgid "Living Castle"
+msgstr "하울의무빙이오지는성"
+
+# -----------------
+# 자연재해
+
+msgid "Tornado"
+msgstr "잔나Q"
+
+msgid "Tsunami"
+msgstr "나미궁"
+
+msgid "Volcano"
+msgstr "백두산"
+
+msgid "Storm"
+msgstr "축구선수전태풍"
+
+msgid "Meteor"
+msgstr "창모"
+
+msgid "Eclipse"
+msgstr "제드의월식"
+
+msgid "Sun"
+msgstr "에스카노르"
+
+msgid "Star"
+msgstr "별"
+
+msgid "Supernova"
+msgstr "특별"
+
+msgid "Black Hole"
+msgstr "웜홀"
+
+# -----------------
+# 신화
+
+msgid "Saturn"
+msgstr "토성"
+
+msgid "Galaxy"
+msgstr "이재용"
+
+msgid "Mothership"
+msgstr "비행접시"
+
+msgid "King"
+msgstr "신왕"
+
+msgid "Diamond"
+msgstr "다2"
+
+msgid "Poseidon"
+msgstr "피즈의삼지창"
+
+msgid "Emperor"
+msgstr "킹왕짱갓엠페러"
+
+msgid "Atom"
+msgstr "원자"
+
+msgid "Yin Yang"
+msgstr "기원"
+
+msgid "Om"
+msgstr "태초"
+
+# -----------------
+# 초월
+
+msgid "Crystal Core"
+msgstr "한계"
+
+msgid "Evil Eye"
+msgstr "불가사의"
+
+msgid "DNA"
+msgstr "무한"
+
+msgid "Overmind"
+msgstr "사건의지평선"
+
+msgid "The Watcher"
+msgstr "관찰자"
+
+msgid "Void Walker"
+msgstr "공허"
+
+msgid "Seraphim"
+msgstr "수렴"
+
+msgid "Archdemon"
+msgstr "풀템아트록스"
+
+msgid "The Pill"
+msgstr "불가능"
+
+msgid "The Server"
+msgstr "도현's MacBook Pro"
+
+# -----------------
+
+msgid "Wooden Stick"
+msgstr "나무 막대기"
+
+msgid "+5 Power"
+msgstr "공격력 +5"
+
+msgid "Rusty Dagger"
+msgstr "녹슨 단검"
+
+msgid "+50 Power"
+msgstr "공격력 +50"
+
+msgid "Iron Sword"
+msgstr "철검"
+
+msgid "+500 Power"
+msgstr "공격력 +500"
+
+msgid "Battle Axe"
+msgstr "배틀 액스"
+
+msgid "+10,000 Power"
+msgstr "공격력 +1만"
+
+msgid "Revolver"
+msgstr "리볼버"
+
+msgid "+250,000 Power"
+msgstr "공격력 +25만"
+
+msgid "Main Battle Tank"
+msgstr "주력 전차"
+
+msgid "+10 Million Power"
+msgstr "공격력 +1000만"
+
+msgid "Orbital Laser"
+msgstr "위성 레이저"
+
+msgid "+5 Billion Power"
+msgstr "공격력 +50억"
+
+msgid "Antimatter Bomb"
+msgstr "반물질 폭탄"
+
+msgid "+10 Trillion Power"
+msgstr "공격력 +10조"
+
+msgid "Grimoire: Thunderbolt"
+msgstr "마도서: 벼락"
+
+msgid "Deal 10x Click DMG (30s CD)"
+msgstr "클릭 대미지의 10배 피해 (쿨타임 30초)"
+
+msgid "Potion: Rage"
+msgstr "물약: 분노"
+
+msgid "Double Click Power (Passive)"
+msgstr "클릭 공격력 2배 (패시브)"
+
+msgid "Muscle Training"
+msgstr "근력 강화"
+
+msgid "+1 Base Click Damage (Stackable)"
+msgstr "기본 클릭 공격력 +1 (중첩 가능)"
+
+msgid "Sharp Whetstone"
+msgstr "날카로운 숫돌"
+
+msgid "+1% Critical Chance (Max 50%)"
+msgstr "치명타 확률 +1% (최대 50%)"
+
+msgid "sec"
+msgstr "초당 딜"
+
+msgid "Basic"
+msgstr "기초"
+
+msgid "Sold Out"
+msgstr "품절"
+
+#: lib/cursor_party_web/live/page_live.html.heex:385
+#, elixir-autogen, elixir-format
+msgid "-1 HP"
+msgstr "체력 -1"
+
+#: lib/cursor_party_web/live/page_live.html.heex:389
+#, elixir-autogen, elixir-format
+msgid "2x DMG & Gold"
+msgstr "데미지 및 골드 2배"
+
+#: lib/cursor_party_web/live/page_live.html.heex:676
+#, elixir-autogen, elixir-format
+msgid "Account Sync"
+msgstr "계정 동기화"
+
+#: lib/cursor_party_web/components/core_components.ex:368
+#, elixir-autogen, elixir-format
+msgid "Actions"
+msgstr "동작"
+
+#: lib/cursor_party_web/components/layouts.ex:99
+#: lib/cursor_party_web/components/layouts.ex:111
+#, elixir-autogen, elixir-format
+msgid "Attempting to reconnect"
+msgstr "재연결 시도 중..."
+
+#: lib/cursor_party_web/live/page_live.html.heex:646
+#, elixir-autogen, elixir-format
+msgid "BOSS DEFEATED!"
+msgstr "보스 처치 성공!"
+
+#: lib/cursor_party_web/live/page_live.html.heex:622
+#, elixir-autogen, elixir-format
+msgid "Buy"
+msgstr "구매"
+
+#: lib/cursor_party_web/live/page_live.html.heex:490
+#, elixir-autogen, elixir-format
+msgid "CURSOR PARTY"
+msgstr "커서 파티"
+
+#: lib/cursor_party_web/live/page_live.html.heex:400
+#, elixir-autogen, elixir-format
+msgid "Change Language"
+msgstr "언어 변경"
+
+#: lib/cursor_party_web/live/page_live.html.heex:157
+#: lib/cursor_party_web/live/page_live.html.heex:179
+#, elixir-autogen, elixir-format
+msgid "Chat"
+msgstr "채팅"
+
+#: lib/cursor_party_web/live/page_live.html.heex:522
+#, elixir-autogen, elixir-format
+msgid "China"
+msgstr "중국"
+
+#: lib/cursor_party_web/live/page_live.html.heex:385
+#, elixir-autogen, elixir-format
+msgid "Click BOSS:"
+msgstr "보스 클릭:"
+
+#: lib/cursor_party_web/live/page_live.html.heex:636
+#, elixir-autogen, elixir-format
+msgid "Close"
+msgstr "닫기"
+
+#: lib/cursor_party_web/live/page_live.html.heex:388
+#, elixir-autogen, elixir-format
+msgid "Critical:"
+msgstr "크리티컬:"
+
+#: lib/cursor_party_web/live/page_live.html.heex:295
+#, elixir-autogen, elixir-format
+msgid "Data Sync"
+msgstr "데이터 연동"
+
+#: lib/cursor_party_web/live/page_live.html.heex:475
+#, elixir-autogen, elixir-format
+msgid "Database Update"
+msgstr "DB 업데이트"
+
+#: lib/cursor_party_web/live/page_live.html.heex:695
+#, elixir-autogen, elixir-format
+msgid "Enter code from old device:"
+msgstr "기존 기기의 코드를 입력하세요:"
+
+#: lib/cursor_party_web/live/page_live.html.heex:503
+#, elixir-autogen, elixir-format
+msgid "Enter your name"
+msgstr "이름을 입력하세요"
+
+#: lib/cursor_party_web/live/page_live.html.heex:523
+#, elixir-autogen, elixir-format
+msgid "Europe"
+msgstr "유럽"
+
+#: lib/cursor_party_web/live/page_live.html.heex:531
+#, elixir-autogen, elixir-format
+msgid "GAME START"
+msgstr "게임 시작"
+
+#: lib/cursor_party_web/live/page_live.html.heex:684
+#, elixir-autogen, elixir-format
+msgid "Get Transfer Code"
+msgstr "이동 코드 발급"
+
+#: lib/cursor_party_web/live/page_live.html.heex:263
+#, elixir-autogen, elixir-format
+msgid "Gold"
+msgstr "골드"
+
+#: lib/cursor_party_web/live/page_live.html.heex:73
+#, elixir-autogen, elixir-format
+msgid "Guest"
+msgstr "손님"
+
+#: lib/cursor_party_web/live/page_live.html.heex:380
+#, elixir-autogen, elixir-format
+msgid "How to Play"
+msgstr "게임 방법"
+
+#: lib/cursor_party_web/live/page_live.html.heex:279
+#, elixir-autogen, elixir-format
+msgid "ITEM SHOP"
+msgstr "아이템 상점"
+
+#: lib/cursor_party_web/live/page_live.html.heex:550
+#, elixir-autogen, elixir-format
+msgid "Item Shop"
+msgstr "아이템 상점"
+
+#: lib/cursor_party_web/live/page_live.html.heex:283
+#, elixir-autogen, elixir-format
+msgid "Items"
+msgstr "개 아이템"
+
+#: lib/cursor_party_web/live/page_live.html.heex:521
+#, elixir-autogen, elixir-format
+msgid "Japan"
+msgstr "일본"
+
+#: lib/cursor_party_web/live/page_live.html.heex:493
+#, elixir-autogen, elixir-format
+msgid "Join the massive multiplayer boss raid!"
+msgstr "대규모 멀티플레이어 보스 레이드에 참여하세요!"
+
+#: lib/cursor_party_web/live/page_live.html.heex:374
+#, elixir-autogen, elixir-format
+msgid "Join to chat"
+msgstr "채팅 참여하기"
+
+#: lib/cursor_party_web/live/page_live.html.heex:519
+#, elixir-autogen, elixir-format
+msgid "Korea"
+msgstr "한국"
+
+#: lib/cursor_party_web/live/page_live.html.heex:310
+#, elixir-autogen, elixir-format
+msgid "LEADERBOARD"
+msgstr "랭킹"
+
+#: lib/cursor_party_web/live/page_live.html.heex:595
+#, elixir-autogen, elixir-format
+msgid "LEARNED"
+msgstr "습득완료"
+
+#: lib/cursor_party_web/live/page_live.html.heex:220
+#, elixir-autogen, elixir-format
+msgid "Leaderboard"
+msgstr "랭킹"
+
+#: lib/cursor_party_web/live/page_live.html.heex:708
+#, elixir-autogen, elixir-format
+msgid "Load"
+msgstr "불러오기"
+
+#: lib/cursor_party_web/live/page_live.html.heex:302
+#, elixir-autogen, elixir-format
+msgid "Logout"
+msgstr "로그아웃"
+
+#: lib/cursor_party_web/live/page_live.html.heex:30
+#: lib/cursor_party_web/live/page_live.html.heex:270
+#: lib/cursor_party_web/live/page_live.html.heex:283
+#: lib/cursor_party_web/live/page_live.html.heex:604
+#, elixir-autogen, elixir-format
+msgid "Lv."
+msgstr "Lv."
+
+#: lib/cursor_party_web/live/page_live.html.heex:649
+#, elixir-autogen, elixir-format
+msgid "MVP 👑"
+msgstr "MVP 👑"
+
+#: lib/cursor_party_web/live/page_live.html.heex:475
+#, elixir-autogen, elixir-format
+msgid "Mobile Update"
+msgstr "모바일 업데이트"
+
+#: lib/cursor_party_web/live/page_live.html.heex:383
+#, elixir-autogen, elixir-format
+msgid "Move cursor to interact"
+msgstr "커서를 움직여 상호작용"
+
+#: lib/cursor_party_web/live/page_live.html.heex:654
+#, elixir-autogen, elixir-format
+msgid "Next Boss In"
+msgstr "다음 보스 등장까지"
+
+#: lib/cursor_party_web/live/page_live.html.heex:498
+#, elixir-autogen, elixir-format
+msgid "Nickname"
+msgstr "닉네임"
+
+#: lib/cursor_party_web/live/page_live.html.heex:331
+#, elixir-autogen, elixir-format
+msgid "No players yet..."
+msgstr "플레이어가 없습니다..."
+
+#: lib/cursor_party_web/live/page_live.html.heex:269
+#: lib/cursor_party_web/live/page_live.html.heex:283
+#, elixir-autogen, elixir-format
+msgid "Power"
+msgstr "파워"
+
+#: lib/cursor_party_web/live/page_live.html.heex:478
+#, elixir-autogen, elixir-format
+msgid "Powered by"
+msgstr "Powered by"
+
+#: lib/cursor_party_web/live/page_live.html.heex:172
+#, elixir-autogen, elixir-format
+msgid "Rank"
+msgstr "랭킹"
+
+#: lib/cursor_party_web/live/page_live.html.heex:513
+#, elixir-autogen, elixir-format
+msgid "Region"
+msgstr "지역"
+
+#: lib/cursor_party_web/live/page_live.html.heex:599
+#, elixir-autogen, elixir-format
+msgid "SKILL"
+msgstr "스킬"
+
+#: lib/cursor_party_web/live/page_live.html.heex:613
+#, elixir-autogen, elixir-format
+msgid "SOLD OUT"
+msgstr "품절"
+
+#: lib/cursor_party_web/live/page_live.html.heex:353
+#, elixir-autogen, elixir-format
+msgid "Say hello! 👋"
+msgstr "인사해주세요! 👋"
+
+#: lib/cursor_party_web/live/page_live.html.heex:164
+#, elixir-autogen, elixir-format
+msgid "Shop"
+msgstr "상점"
+
+#: lib/cursor_party_web/live/page_live.html.heex:574
+#, elixir-autogen, elixir-format
+msgid "Skills"
+msgstr "스킬"
+
+#: lib/cursor_party_web/components/layouts.ex:106
+#, elixir-autogen, elixir-format
+msgid "Something went wrong!"
+msgstr "문제가 발생했습니다!"
+
+#: lib/cursor_party_web/live/page_live.html.heex:679
+#, elixir-autogen, elixir-format
+msgid "To play on another device:"
+msgstr "다른 기기에서 플레이하려면:"
+
+#: lib/cursor_party_web/live/page_live.html.heex:410
+#, elixir-autogen, elixir-format
+msgid "Toggle Sound"
+msgstr "소리 켜기/끄기"
+
+#: lib/cursor_party_web/live/page_live.html.heex:257
+#, elixir-autogen, elixir-format
+msgid "Total Damage"
+msgstr "총 데미지"
+
+#: lib/cursor_party_web/live/page_live.html.heex:367
+#, elixir-autogen, elixir-format
+msgid "Type a message..."
+msgstr "메시지를 입력하세요..."
+
+#: lib/cursor_party_web/live/page_live.html.heex:209
+#, elixir-autogen, elixir-format
+msgid "Type here..."
+msgstr "입력..."
+
+#: lib/cursor_party_web/live/page_live.html.heex:520
+#, elixir-autogen, elixir-format
+msgid "USA"
+msgstr "미국"
+
+#: lib/cursor_party_web/live/page_live.html.heex:551
+#, elixir-autogen, elixir-format
+msgid "Upgrade your gear & skills!"
+msgstr "장비와 스킬을 업그레이드하세요!"
+
+#: lib/cursor_party_web/live/page_live.html.heex:391
+#, elixir-autogen, elixir-format
+msgid "Use Gold to upgrade Power!"
+msgstr "골드로 파워를 업그레이드하세요!"
+
+#: lib/cursor_party_web/live/page_live.html.heex:690
+#, elixir-autogen, elixir-format
+msgid "Valid for 5 minutes"
+msgstr "5분간 유효"
+
+#: lib/cursor_party_web/live/page_live.html.heex:444
+#, elixir-autogen, elixir-format
+msgid "View Source"
+msgstr "소스 코드 보기"
+
+#: lib/cursor_party_web/live/page_live.html.heex:459
+#, elixir-autogen, elixir-format
+msgid "Visit Blog"
+msgstr "블로그 방문"
+
+#: lib/cursor_party_web/live/page_live.html.heex:665
+#, elixir-autogen, elixir-format
+msgid "Warning"
+msgstr "경고"
+
+#: lib/cursor_party_web/components/layouts.ex:94
+#, elixir-autogen, elixir-format
+msgid "We can't find the internet"
+msgstr "인터넷 연결을 확인할 수 없습니다"
+
+#: lib/cursor_party_web/live/page_live.html.heex:567
+#, elixir-autogen, elixir-format
+msgid "Weapons"
+msgstr "무기"
+
+#: lib/cursor_party_web/live/page_live.html.heex:524
+#, elixir-autogen, elixir-format
+msgid "World"
+msgstr "전세계"
+
+#: lib/cursor_party_web/components/core_components.ex:74
+#, elixir-autogen, elixir-format
+msgid "close"
+msgstr "닫기"
