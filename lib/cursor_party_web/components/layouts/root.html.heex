@@ -1,19 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <%= if Application.get_env(:cursor_party, :env) == :dev do %>
+      <link rel="icon" type="image/png" href={~p"/assets/static/images/favicon-dev.png"} />
+    <% else %>
+      <link rel="icon" type="image/png" href={~p"/assets/static/images/favicon.png"} />
+    <% end %>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
+
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <.live_title default="CursorParty" suffix=" · Phoenix Framework">
-      {assigns[:page_title]}
+
+    <.live_title suffix=" · Multiplayer Clicker RPG">
+      {assigns[:page_title] || "Cursor Party"}
     </.live_title>
+    <meta
+      name="description"
+      content="Join the massive multiplayer boss raid! Click together, upgrade items, and defeat the boss with friends. No login required."
+    />
+    <meta
+      name="keywords"
+      content="clicker game, multiplayer game, io game, raid, boss battle, pixel art, elixir, phoenix"
+    />
+    <meta name="author" content="Cursor Party Team" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://cursor-party.koyeb.app" />
+    <meta property="og:title" content="Cursor Party - Online Boss Raid" />
+    <meta
+      property="og:description"
+      content="Click together, win together! Join the real-time boss raid now."
+    />
+    <meta
+      property="og:image"
+      content="https://via.placeholder.com/1200x630/000000/FFFFFF?text=CURSOR+PARTY"
+    />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Cursor Party" />
+    <meta name="twitter:description" content="Real-time multiplayer boss raid." />
+
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
+
     <script>
       (() => {
         const setTheme = (theme) => {
