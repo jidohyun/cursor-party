@@ -7,6 +7,12 @@
 # General application configuration
 import Config
 
+# 👇 이 줄을 추가해서 현재 환경(dev, prod 등)을 전역 설정에 저장합니다.
+config :cursor_party, env: Mix.env()
+
+config :cursor_party,
+  ecto_repos: [CursorParty.Repo]
+
 config :cursor_party, CursorParty.Repo,
   database: "cursor_party_repo",
   username: "user",
