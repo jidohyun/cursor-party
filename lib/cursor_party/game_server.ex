@@ -442,16 +442,19 @@ defmodule CursorParty.GameServer do
   @impl true
   def handle_cast({:new_chat, user_id, name, msg}, state) do
     new_msg = %{
-      id: System.unique_integer([:positive]),
-      user_id: user_id,
-      name: name,
-      text: String.slice(msg, 0, 50),
-      timestamp: System.system_time(:millisecond)
+      # 유니크 ID
+      "id" => :rand.uniform(1_000_000),
+      "user_id" => user_id,
+      "name" => name,
+      "text" => msg,
+      "timestamp" => System.system_time(:millisecond)
     }
 
-    hist = [new_msg | state.chat_history] |> Enum.take(50)
-    Phoenix.PubSub.broadcast(CursorParty.PubSub, "cursor:lobby", {:chat_update, hist})
-    {:noreply, %{state | chat_history: hist}}
+    new_history = [new_msg | state.chat_history] |> Enum.take(50)
+
+    Phoenix.PubSub.broadcast(CursorParty.PubSub, "cursor:lobby", {:chat_update, new_history})
+
+    {:noreply, %{state | chat_history: new_history}}
   end
 
   @impl true
