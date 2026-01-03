@@ -63,7 +63,9 @@ defmodule CursorParty.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
-      {:number, "~> 1.0.1"}
+      {:number, "~> 1.0.1"},
+      {:ecto_sql, "~> 3.10"},
+      {:postgrex, ">= 0.0.0"}
     ]
   end
 

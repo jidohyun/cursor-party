@@ -9,18 +9,24 @@ defmodule CursorParty.Application do
   def start(_type, _args) do
     children = [
       CursorPartyWeb.Telemetry,
-      {DNSCluster, query: Application.get_env(:cursor_party, :dns_cluster_query) || :ignore},
+      CursorParty.Repo,
       {Phoenix.PubSub, name: CursorParty.PubSub},
+      {Finch, name: CursorParty.Finch},
       CursorPartyWeb.Presence,
       CursorParty.GameServer,
-      # Start a worker by calling: CursorParty.Worker.start_link(arg)
-      # {CursorParty.Worker, arg},
-      # Start to serve requests, typically the last entry
-      !System.get_env("PHOENIX_SERVER") && CursorPartyWeb.Endpoint
+      CursorPartyWeb.Endpoint
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
+    # ==========================================================================
+    # [추가] 앱 시작 시 자동으로 DB 마이그레이션(테이블 생성) 실행
+    # ==========================================================================
+    if System.get_env("RELEASE_NAME") != nil or Mix.env() == :prod do
+      IO.puts("Running Migrations...")
+      Ecto.Migrator.with_repo(CursorParty.Repo, &Ecto.Migrator.run(&1, :up, all: true))
+    end
+
+    # ==========================================================================
+
     opts = [strategy: :one_for_one, name: CursorParty.Supervisor]
     Supervisor.start_link(children, opts)
   end

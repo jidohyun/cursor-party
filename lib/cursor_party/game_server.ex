@@ -1,24 +1,19 @@
 defmodule CursorParty.GameServer do
   use GenServer
+  alias CursorParty.Repo
+  alias CursorParty.Schema.{Profile, GameState}
+  # import Ecto.Query  <-- 사용하지 않으므로 제거 (Warning 해결)
 
   # ============================================================================
-  # Constants and Settings
+  # 상수
   # ============================================================================
-  @db_filename :cursor_party_db
   @base_hp_per_level 2000
-  # Click cooldown (0.1s)
-  @cooldown_ms 100
-  # Auto-clicker detection limit (0.05s)
-  @human_limit_ms 50
-  # Ban duration (1 minute)
+  @cooldown_ms 50
+  @human_limit_ms 15
   @ban_duration_ms 60_000
-  # Max boss level
   @max_level 30
 
-  # [Shop Item Definitions] - Data Driven
-  # Added 'category' field for tab separation in UI
   @shop_items %{
-    # --- Weapons ---
     sword: %{
       id: :sword,
       name: "Iron Sword",
@@ -28,7 +23,6 @@ defmodule CursorParty.GameServer do
       cost_factor: 1.5,
       type: :power,
       value: 1,
-      # New field
       category: :weapon
     },
     axe: %{
@@ -53,20 +47,15 @@ defmodule CursorParty.GameServer do
       value: 50,
       category: :weapon
     },
-    # --- Skills ---
     skill_thunder: %{
       id: :skill_thunder,
       name: "Grimoire: Thunderbolt",
       icon: "⚡",
       desc: "Auto-cast massive damage every 30s",
       base_cost: 2000,
-      # One-time purchase
       cost_factor: 1.0,
-      # Skill type
       type: :skill,
-      # Damage calculated dynamically
       value: 0,
-      # New field
       category: :skill
     }
   }
@@ -74,27 +63,24 @@ defmodule CursorParty.GameServer do
   # ============================================================================
   # Client API
   # ============================================================================
-
   def start_link(_), do: GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
-
   def hit(user_id, attacker_name), do: GenServer.call(__MODULE__, {:hit, user_id, attacker_name})
   def buy_item(user_id, item_id), do: GenServer.call(__MODULE__, {:buy_item, user_id, item_id})
   def get_shop_items, do: @shop_items
-
   def get_state, do: GenServer.call(__MODULE__, :get_state)
   def get_hp, do: GenServer.call(__MODULE__, :get_hp)
+  def get_profile(user_id), do: GenServer.call(__MODULE__, {:get_profile, user_id})
+  def get_all_profiles, do: GenServer.call(__MODULE__, :get_all_profiles)
+  def get_admin_stats, do: GenServer.call(__MODULE__, :get_admin_stats)
 
   def register_profile(user_id, profile),
     do: GenServer.cast(__MODULE__, {:register_profile, user_id, profile})
 
-  def get_profile(user_id), do: GenServer.call(__MODULE__, {:get_profile, user_id})
   def logout(user_id), do: GenServer.cast(__MODULE__, {:logout, user_id})
-  def get_all_profiles, do: GenServer.call(__MODULE__, :get_all_profiles)
 
   def send_chat(user_id, name, message),
     do: GenServer.cast(__MODULE__, {:new_chat, user_id, name, message})
 
-  def get_admin_stats, do: GenServer.call(__MODULE__, :get_admin_stats)
   def track_visit(user_id), do: GenServer.cast(__MODULE__, {:track_visit, user_id})
 
   # ============================================================================
@@ -103,325 +89,133 @@ defmodule CursorParty.GameServer do
 
   @impl true
   def init(_) do
-    {:ok, _table} = :dets.open_file(@db_filename, type: :set)
+    boss_data =
+      case Repo.get_by(GameState, key: "boss") do
+        nil -> %{"hp" => 2000, "level" => 1, "winner" => nil}
+        record -> record.value
+      end
 
-    boss_level = lookup_dets(:boss_level, 1)
-    default_hp = calculate_max_hp(boss_level)
-    loaded_hp = lookup_dets(:boss_hp, default_hp)
-    hp = if boss_level == 1 and loaded_hp > 2000, do: 2000, else: loaded_hp
+    profiles =
+      Repo.all(Profile)
+      |> Map.new(fn p ->
+        items = string_keys_to_atoms(p.items)
+        skill_cd = string_keys_to_atoms(p.skill_cd)
 
-    winner = lookup_dets(:winner, nil)
-    profiles = lookup_dets(:profiles, %{})
-    chat_history = lookup_dets(:chat_history, [])
-    daily_stats = lookup_dets(:daily_stats, %{})
+        {p.id,
+         %{
+           name: p.name,
+           gold: p.gold,
+           power: p.power,
+           total_damage: p.total_damage,
+           items: items,
+           skill_cd: skill_cd,
+           auto_damage: calculate_auto_damage(items)
+         }}
+      end)
 
-    # Start auto-attack loop (1 second interval) for skills and future pets
+    daily_stats =
+      case Repo.get_by(GameState, key: "daily_stats") do
+        nil -> %{}
+        record -> Map.new(record.value, fn {k, v} -> {k, MapSet.new(v)} end)
+      end
+
+    chat_history =
+      case Repo.get_by(GameState, key: "chat") do
+        nil -> []
+        record -> record.value["history"] || []
+      end
+
     :timer.send_interval(1000, :tick_auto_attack)
+    :timer.send_interval(10000, :save_db)
 
     {:ok,
      %{
-       hp: hp,
-       boss_level: boss_level,
-       winner: winner,
-       last_hits: %{},
-       banned_users: %{},
+       hp: boss_data["hp"] || 2000,
+       boss_level: boss_data["level"] || 1,
+       winner: boss_data["winner"],
        profiles: profiles,
        chat_history: chat_history,
-       daily_stats: daily_stats
+       daily_stats: daily_stats,
+       last_hits: %{},
+       banned_users: %{}
      }}
   end
 
-  # --- Handle Calls ---
+  # --- Handle Info (순서 중요) ---
 
   @impl true
-  def handle_call(:get_state, _from, state) do
-    public_state = Map.take(state, [:hp, :boss_level, :winner, :chat_history])
-    {:reply, public_state, state}
+  def handle_info(:save_db, state) do
+    # 비동기 Task로 실행하여 게임 로직(GenServer)이 멈추지 않게 함
+    # (Task.start를 쓰면 저장하는 동안에도 클릭을 받을 수 있음)
+    Task.start(fn ->
+      save_everything(state)
+    end)
+
+    {:noreply, state}
   end
 
-  @impl true
-  def handle_call(:get_hp, _from, state), do: {:reply, state.hp, state}
-  @impl true
-  def handle_call({:get_profile, user_id}, _from, state),
-    do: {:reply, Map.get(state.profiles, user_id), state}
-
-  @impl true
-  def handle_call(:get_all_profiles, _from, state), do: {:reply, state.profiles, state}
-
-  # [Shop Purchase Logic]
-  @impl true
-  def handle_call({:buy_item, user_id, item_id}, _from, state) do
-    profile = Map.get(state.profiles, user_id)
-    item_def = @shop_items[item_id]
-
-    if profile && item_def do
-      current_gold = profile[:gold] || 0
-      user_items = profile[:items] || %{}
-      current_level = Map.get(user_items, item_id, 0)
-
-      # Check if skill book is already learned (max level 1)
-      if item_def.type == :skill and current_level >= 1 do
-        {:reply, {:error, :already_learned}, state}
-      else
-        cost = floor(item_def.base_cost * :math.pow(item_def.cost_factor, current_level))
-
-        if current_gold >= cost do
-          new_gold = current_gold - cost
-          new_level = current_level + 1
-          new_user_items = Map.put(user_items, item_id, new_level)
-
-          # Recalculate stats (Power and Auto Damage)
-          new_stats =
-            Enum.reduce(@shop_items, %{power: 1, auto: 0}, fn {k, def}, acc ->
-              lvl = Map.get(new_user_items, k, 0)
-
-              case def.type do
-                :power -> Map.put(acc, :power, acc.power + lvl * def.value)
-                :auto -> Map.put(acc, :auto, acc.auto + lvl * def.value)
-                _ -> acc
-              end
-            end)
-
-          updated_profile =
-            Map.merge(profile, %{
-              gold: new_gold,
-              items: new_user_items,
-              power: new_stats.power,
-              auto_damage: new_stats.auto,
-              # Ensure skill cooldown map exists
-              skill_cd: profile[:skill_cd] || %{}
-            })
-
-          new_profiles = Map.put(state.profiles, user_id, updated_profile)
-          :dets.insert(@db_filename, {:profiles, new_profiles})
-
-          # Return 5 values: gold, power, items, auto_damage
-          {:reply, {:ok, new_gold, new_stats.power, new_user_items, new_stats.auto},
-           %{state | profiles: new_profiles}}
-        else
-          {:reply, {:error, :not_enough_gold}, state}
-        end
-      end
-    else
-      {:reply, {:error, :invalid_item}, state}
-    end
-  end
-
-  @impl true
-  def handle_call(:get_admin_stats, _from, state) do
-    daily_counts =
-      state.daily_stats
-      |> Enum.map(fn {date, user_set} -> {date, MapSet.size(user_set)} end)
-      |> Enum.sort_by(fn {date, _} -> date end, :desc)
-      |> Enum.take(7)
-
-    stats = %{
-      hp: state.hp,
-      level: state.boss_level,
-      total_profiles: map_size(state.profiles),
-      banned_count: map_size(state.banned_users),
-      daily_counts: daily_counts
-    }
-
-    {:reply, stats, state}
-  end
-
-  @impl true
-  def handle_cast({:track_visit, user_id}, state) do
-    # "2024-05-20" 형식
-    today = Date.utc_today() |> Date.to_string()
-
-    # 오늘의 방문자 Set 가져오기 (없으면 빈 Set)
-    current_set = Map.get(state.daily_stats, today, MapSet.new())
-
-    # 유저 ID 추가
-    new_set = MapSet.put(current_set, user_id)
-
-    # State 업데이트
-    new_daily_stats = Map.put(state.daily_stats, today, new_set)
-
-    # DB 저장 (Dets는 전체 맵을 덮어씀)
-    :dets.insert(@db_filename, {:daily_stats, new_daily_stats})
-
-    {:noreply, %{state | daily_stats: new_daily_stats}}
-  end
-
-  # [Hit Logic]
-  @impl true
-  def handle_call({:hit, user_id, attacker_name}, _from, state) do
-    now = System.monotonic_time(:millisecond)
-    ban_release_time = Map.get(state.banned_users, user_id, now - 1)
-
-    if now < ban_release_time do
-      {:reply, {:error, :banned}, state}
-    else
-      last_hit_time = Map.get(state.last_hits, user_id, now - 1000)
-      diff = now - last_hit_time
-
-      cond do
-        # Auto-clicker
-        diff < @human_limit_ms ->
-          new_release_time = now + @ban_duration_ms
-          new_banned_users = Map.put(state.banned_users, user_id, new_release_time)
-
-          Phoenix.PubSub.broadcast(
-            CursorParty.PubSub,
-            "game:boss",
-            {:auto_clicker_detected, attacker_name, user_id}
-          )
-
-          {:reply, {:error, :ratelimit}, %{state | banned_users: new_banned_users}}
-
-        # Cooldown
-        diff <= @cooldown_ms ->
-          {:reply, {:error, :cooldown}, state}
-
-        # Success
-        true ->
-          profile = Map.get(state.profiles, user_id)
-          base_power = if profile, do: profile[:power] || 1, else: 1
-
-          is_crit = :rand.uniform(100) <= 15
-          final_damage = if is_crit, do: base_power * 2, else: base_power
-
-          new_profiles =
-            if profile do
-              new_dmg = (profile[:total_damage] || 0) + final_damage
-              new_gold = (profile[:gold] || 0) + final_damage
-
-              updated_profile =
-                Map.merge(profile, %{total_damage: new_dmg, gold: new_gold, power: base_power})
-
-              p = Map.put(state.profiles, user_id, updated_profile)
-              :dets.insert(@db_filename, {:profiles, p})
-              p
-            else
-              state.profiles
-            end
-
-          new_hp = state.hp - final_damage
-          :dets.insert(@db_filename, {:boss_hp, new_hp})
-          new_last_hits = Map.put(state.last_hits, user_id, now)
-
-          if new_hp <= 0 do
-            next_level =
-              if state.boss_level >= @max_level, do: state.boss_level, else: state.boss_level + 1
-
-            next_hp = calculate_max_hp(next_level)
-            :dets.insert(@db_filename, {:boss_hp, next_hp})
-            :dets.insert(@db_filename, {:boss_level, next_level})
-            :dets.insert(@db_filename, {:winner, attacker_name})
-
-            Phoenix.PubSub.broadcast(
-              CursorParty.PubSub,
-              "game:boss",
-              {:boss_update, next_hp, next_level, attacker_name}
-            )
-
-            {:reply, {:ok, final_damage, is_crit},
-             %{
-               state
-               | hp: next_hp,
-                 boss_level: next_level,
-                 winner: attacker_name,
-                 last_hits: new_last_hits,
-                 profiles: new_profiles
-             }}
-          else
-            Phoenix.PubSub.broadcast(
-              CursorParty.PubSub,
-              "game:boss",
-              {:boss_update, new_hp, state.boss_level, nil}
-            )
-
-            {:reply, {:ok, final_damage, is_crit},
-             %{state | hp: new_hp, last_hits: new_last_hits, profiles: new_profiles}}
-          end
-      end
-    end
-  end
-
-  # --- Handle Info (Auto Attack & Skills) ---
-
-  # [Auto Attack Loop] - Handles Pets and Skills (30s cooldown)
   @impl true
   def handle_info(:tick_auto_attack, state) do
     now = System.system_time(:millisecond)
 
-    {total_round_dmg, updated_profiles} =
-      Enum.reduce(state.profiles, {0, state.profiles}, fn {uid, profile},
-                                                          {dmg_acc, profiles_acc} ->
-        # 1. Pet Damage (Placeholder for now, prepared for later)
-        auto_dmg = profile[:auto_damage] || 0
-
-        # 2. Skill Trigger Check (Thunderbolt)
-        has_thunder = get_in(profile, [:items, :skill_thunder]) == 1
-        skill_cds = profile[:skill_cd] || %{}
+    {total_dmg, updated_profiles} =
+      Enum.reduce(state.profiles, {0, state.profiles}, fn {uid, p}, {d_acc, p_acc} ->
+        auto = p[:auto_damage] || 0
+        has_thunder = get_in(p, [:items, :skill_thunder]) == 1
+        skill_cds = p[:skill_cd] || %{}
         ready_at = Map.get(skill_cds, :skill_thunder, 0)
 
-        {skill_dmg, new_skill_cds} =
+        {skill_dmg, new_cds} =
           if has_thunder and now >= ready_at do
-            # Damage calculation: (Power * 20) + 50
-            dmg = profile[:power] * 20 + 50
-            # 30s cooldown
-            next_ready = now + 30_000
+            dmg = p[:power] * 20 + 50
 
-            # Broadcast effect
             Phoenix.PubSub.broadcast(
               CursorParty.PubSub,
               "game:boss",
               {:skill_used, :thunder, uid, dmg}
             )
 
-            {dmg, Map.put(skill_cds, :skill_thunder, next_ready)}
+            {dmg, Map.put(skill_cds, :skill_thunder, now + 30_000)}
           else
             {0, skill_cds}
           end
 
-        current_tick_dmg = auto_dmg + skill_dmg
+        tick_dmg = auto + skill_dmg
 
-        if current_tick_dmg > 0 do
-          new_gold = (profile[:gold] || 0) + current_tick_dmg
-          new_total_dmg = (profile[:total_damage] || 0) + current_tick_dmg
-
-          new_profile =
-            Map.merge(profile, %{
-              gold: new_gold,
-              total_damage: new_total_dmg,
-              skill_cd: new_skill_cds
+        if tick_dmg > 0 do
+          new_p =
+            Map.merge(p, %{
+              gold: (p[:gold] || 0) + tick_dmg,
+              total_damage: (p[:total_damage] || 0) + tick_dmg,
+              skill_cd: new_cds
             })
 
-          {dmg_acc + current_tick_dmg, Map.put(profiles_acc, uid, new_profile)}
+          {d_acc + tick_dmg, Map.put(p_acc, uid, new_p)}
         else
-          {dmg_acc, profiles_acc}
+          {d_acc, p_acc}
         end
       end)
 
-    if total_round_dmg > 0 do
-      :dets.insert(@db_filename, {:profiles, updated_profiles})
-      new_hp = state.hp - total_round_dmg
-      :dets.insert(@db_filename, {:boss_hp, new_hp})
+    if total_dmg > 0 do
+      new_hp = state.hp - total_dmg
 
       final_state =
         if new_hp <= 0 do
-          next_level =
+          next_lvl =
             if state.boss_level >= @max_level, do: state.boss_level, else: state.boss_level + 1
 
-          next_hp = calculate_max_hp(next_level)
-          :dets.insert(@db_filename, {:boss_hp, next_hp})
-          :dets.insert(@db_filename, {:boss_level, next_level})
-          :dets.insert(@db_filename, {:winner, "Idle Army"})
+          next_hp = next_lvl * @base_hp_per_level
 
           Phoenix.PubSub.broadcast(
             CursorParty.PubSub,
             "game:boss",
-            {:boss_update, next_hp, next_level, "Idle Army"}
+            {:boss_update, next_hp, next_lvl, "Idle Army"}
           )
 
           %{
             state
             | hp: next_hp,
-              boss_level: next_level,
+              boss_level: next_lvl,
               winner: "Idle Army",
               profiles: updated_profiles
           }
@@ -441,60 +235,305 @@ defmodule CursorParty.GameServer do
     end
   end
 
-  # --- Handle Cast ---
+  # --- Handle Call (순서 중요) ---
 
   @impl true
-  def handle_cast({:register_profile, user_id, input_profile}, state) do
+  def handle_call(:get_state, _from, state) do
+    {:reply, Map.take(state, [:hp, :boss_level, :winner, :chat_history]), state}
+  end
+
+  @impl true
+  def handle_call(:get_hp, _from, state), do: {:reply, state.hp, state}
+
+  @impl true
+  def handle_call({:get_profile, user_id}, _from, state),
+    do: {:reply, Map.get(state.profiles, user_id), state}
+
+  @impl true
+  def handle_call(:get_all_profiles, _from, state), do: {:reply, state.profiles, state}
+
+  @impl true
+  def handle_call(:get_admin_stats, _from, state) do
+    daily =
+      state.daily_stats
+      |> Enum.map(fn {d, s} -> {d, MapSet.size(s)} end)
+      |> Enum.sort_by(&elem(&1, 0), :desc)
+      |> Enum.take(7)
+
+    {:reply,
+     %{
+       hp: state.hp,
+       level: state.boss_level,
+       total_profiles: map_size(state.profiles),
+       banned_count: map_size(state.banned_users),
+       daily_counts: daily
+     }, state}
+  end
+
+  @impl true
+  def handle_call({:buy_item, user_id, item_id}, _from, state) do
+    profile = Map.get(state.profiles, user_id)
+    item_def = @shop_items[item_id]
+
+    if profile && item_def do
+      current_gold = profile[:gold] || 0
+      user_items = profile[:items] || %{}
+      current_level = Map.get(user_items, item_id, 0)
+
+      if item_def.type == :skill and current_level >= 1 do
+        {:reply, {:error, :already_learned}, state}
+      else
+        cost = floor(item_def.base_cost * :math.pow(item_def.cost_factor, current_level))
+
+        if current_gold >= cost do
+          new_gold = current_gold - cost
+          new_level = current_level + 1
+          new_user_items = Map.put(user_items, item_id, new_level)
+          new_stats = calculate_stats(new_user_items)
+
+          updated_profile =
+            Map.merge(profile, %{
+              gold: new_gold,
+              items: new_user_items,
+              power: new_stats.power,
+              auto_damage: new_stats.auto,
+              skill_cd: profile[:skill_cd] || %{}
+            })
+
+          new_profiles = Map.put(state.profiles, user_id, updated_profile)
+
+          {:reply, {:ok, new_gold, new_stats.power, new_user_items, new_stats.auto},
+           %{state | profiles: new_profiles}}
+        else
+          {:reply, {:error, :not_enough_gold}, state}
+        end
+      end
+    else
+      {:reply, {:error, :invalid_item}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:hit, user_id, attacker_name}, _from, state) do
+    # [수정] monotonic_time -> system_time (재시작해도 시간 오류 안 나게 변경)
+    now = System.system_time(:millisecond)
+
+    # 1. 밴 확인
+    ban_release = Map.get(state.banned_users, user_id, 0)
+
+    if now < ban_release do
+      # 남은 시간 계산 (로그용)
+      remaining = ban_release - now
+      IO.puts("🚫 [Hit 거절] #{user_id} 밴 됨. 남은 시간: #{remaining}ms")
+      {:reply, {:error, :banned}, state}
+    else
+      # [수정] system_time 기준으로 변경
+      last_hit = Map.get(state.last_hits, user_id, 0)
+      diff = now - last_hit
+
+      # 2. 오토클리커 감지
+      if diff < @human_limit_ms do
+        IO.puts("🤖 [Hit 거절] 오토 의심! 간격: #{diff}ms")
+
+        # 1분 밴
+        new_bans = Map.put(state.banned_users, user_id, now + @ban_duration_ms)
+
+        Phoenix.PubSub.broadcast(
+          CursorParty.PubSub,
+          "cursor:lobby",
+          {:auto_clicker_detected, attacker_name, user_id}
+        )
+
+        {:reply, {:error, :ratelimit}, %{state | banned_users: new_bans}}
+      else
+        # 3. 쿨타임 확인
+        if diff <= @cooldown_ms do
+          {:reply, {:error, :cooldown}, state}
+        else
+          # --- 공격 성공 ---
+
+          profile = Map.get(state.profiles, user_id)
+          base_power = if profile, do: profile[:power] || 1, else: 1
+
+          is_crit = :rand.uniform(100) <= 15
+          damage = if is_crit, do: base_power * 2, else: base_power
+
+          new_profiles =
+            if profile do
+              upd =
+                Map.merge(profile, %{
+                  total_damage: (profile[:total_damage] || 0) + damage,
+                  gold: (profile[:gold] || 0) + damage
+                })
+
+              Map.put(state.profiles, user_id, upd)
+            else
+              state.profiles
+            end
+
+          new_hp = state.hp - damage
+          new_hits = Map.put(state.last_hits, user_id, now)
+
+          # 2. 보스 처치 로직
+          if new_hp <= 0 do
+            next_lvl =
+              if state.boss_level >= @max_level, do: state.boss_level, else: state.boss_level + 1
+
+            next_hp = next_lvl * @base_hp_per_level
+
+            Phoenix.PubSub.broadcast(
+              CursorParty.PubSub,
+              "game:boss",
+              {:boss_update, next_hp, next_lvl, attacker_name}
+            )
+
+            # [선택] 보스 처치는 중요한 이벤트니 이때만 즉시 저장해도 됩니다.
+            # 하지만 성능을 위해 이것도 메모리만 바꾸고 나중에 저장해도 됩니다.
+            # 여기서는 즉시 저장을 뺍니다. (save_db가 알아서 할 것임)
+
+            {:reply, {:ok, damage, is_crit},
+             %{
+               state
+               | hp: next_hp,
+                 boss_level: next_lvl,
+                 winner: attacker_name,
+                 last_hits: new_hits,
+                 profiles: new_profiles
+             }}
+          else
+            Phoenix.PubSub.broadcast(
+              CursorParty.PubSub,
+              "game:boss",
+              {:boss_update, new_hp, state.boss_level, nil}
+            )
+
+            {:reply, {:ok, damage, is_crit},
+             %{state | hp: new_hp, last_hits: new_hits, profiles: new_profiles}}
+          end
+        end
+      end
+    end
+  end
+
+  # --- Handle Cast (순서 중요) ---
+
+  @impl true
+  def handle_cast({:register_profile, user_id, profile}, state) do
     existing = Map.get(state.profiles, user_id, %{})
 
-    merged_profile =
-      Map.merge(input_profile, %{
+    merged =
+      Map.merge(profile, %{
         total_damage: existing[:total_damage] || 0,
         gold: existing[:gold] || 0,
         power: existing[:power] || 1,
-        auto_damage: existing[:auto_damage] || 0,
         items: existing[:items] || %{},
-        # Ensure skill_cd exists
-        skill_cd: existing[:skill_cd] || %{}
+        skill_cd: existing[:skill_cd] || %{},
+        auto_damage: existing[:auto_damage] || 0
       })
 
-    new_profiles = Map.put(state.profiles, user_id, merged_profile)
-    :dets.insert(@db_filename, {:profiles, new_profiles})
-    {:noreply, %{state | profiles: new_profiles}}
+    {:noreply, %{state | profiles: Map.put(state.profiles, user_id, merged)}}
   end
 
   @impl true
   def handle_cast({:logout, user_id}, state) do
-    new_profiles = Map.delete(state.profiles, user_id)
-    {:noreply, %{state | profiles: new_profiles}}
+    {:noreply, %{state | profiles: Map.delete(state.profiles, user_id)}}
   end
 
   @impl true
-  def handle_cast({:new_chat, user_id, name, message}, state) do
-    msg = %{
+  def handle_cast({:new_chat, user_id, name, msg}, state) do
+    new_msg = %{
       id: System.unique_integer([:positive]),
       user_id: user_id,
       name: name,
-      text: String.slice(message, 0, 50),
+      text: String.slice(msg, 0, 50),
       timestamp: System.system_time(:millisecond)
     }
 
-    new_history = [msg | state.chat_history] |> Enum.take(50)
-    Phoenix.PubSub.broadcast(CursorParty.PubSub, "cursor:lobby", {:chat_update, new_history})
-    {:noreply, %{state | chat_history: new_history}}
+    hist = [new_msg | state.chat_history] |> Enum.take(50)
+    Phoenix.PubSub.broadcast(CursorParty.PubSub, "cursor:lobby", {:chat_update, hist})
+    {:noreply, %{state | chat_history: hist}}
   end
 
   @impl true
-  def terminate(_reason, _state), do: :dets.close(@db_filename)
+  def handle_cast({:track_visit, user_id}, state) do
+    today = Date.utc_today() |> Date.to_string()
+    current_set = Map.get(state.daily_stats, today, MapSet.new())
+
+    {:noreply,
+     %{state | daily_stats: Map.put(state.daily_stats, today, MapSet.put(current_set, user_id))}}
+  end
 
   # --- Helpers ---
 
-  defp lookup_dets(key, default) do
-    case :dets.lookup(@db_filename, key) do
-      [{^key, val}] -> val
-      [] -> default
-    end
+  defp upsert_game_state(key, value) do
+    %GameState{}
+    |> GameState.changeset(%{key: key, value: value})
+    |> Repo.insert(on_conflict: :replace_all, conflict_target: [:key])
   end
 
-  defp calculate_max_hp(level), do: level * @base_hp_per_level
+  defp save_everything(state) do
+    # 1. 보스 상태 저장
+    boss_val = %{"hp" => state.hp, "level" => state.boss_level, "winner" => state.winner}
+    upsert_game_state("boss", boss_val)
+
+    # 2. 프로필 저장
+    # (최적화: 변경된 유저만 저장하면 좋지만, 일단 전체 저장도 10초에 한 번이면 괜찮음)
+    # Repo.insert는 건건이 쿼리를 날리므로, 유저가 1000명이 넘어가면 repo.insert_all로 바꿔야 함.
+    # 지금 단계에선 Enum.each로 충분합니다.
+    Enum.each(state.profiles, fn {uid, p} ->
+      attrs = %{
+        id: uid,
+        name: p.name,
+        gold: p[:gold],
+        power: p[:power],
+        total_damage: p[:total_damage],
+        items: p[:items],
+        skill_cd: p[:skill_cd]
+      }
+
+      %Profile{}
+      |> Profile.changeset(attrs)
+      |> Repo.insert(on_conflict: :replace_all, conflict_target: :id)
+    end)
+
+    # 3. 기타 데이터 저장
+    daily_stats_json = Map.new(state.daily_stats, fn {k, v} -> {k, MapSet.to_list(v)} end)
+    upsert_game_state("daily_stats", daily_stats_json)
+    upsert_game_state("chat", %{"history" => state.chat_history})
+
+    IO.puts("💾 [AutoSave] 데이터베이스 저장 완료")
+  end
+
+  defp calculate_stats(items) do
+    Enum.reduce(@shop_items, %{power: 1, auto: 0}, fn {k, def}, acc ->
+      lvl = Map.get(items, k, 0)
+
+      case def.type do
+        :power -> Map.put(acc, :power, acc.power + lvl * def.value)
+        :auto -> Map.put(acc, :auto, acc.auto + lvl * def.value)
+        _ -> acc
+      end
+    end)
+  end
+
+  defp calculate_auto_damage(items), do: calculate_stats(items).auto
+
+  defp string_keys_to_atoms(nil), do: %{}
+
+  defp string_keys_to_atoms(map) do
+    Map.new(map, fn {k, v} ->
+      try do
+        {String.to_existing_atom(k), v}
+      rescue
+        _ -> {String.to_atom(k), v}
+      end
+    end)
+  end
+
+  @impl true
+  def terminate(_reason, state) do
+    IO.puts("🛑 서버 종료 중... 데이터 긴급 저장!")
+    save_everything(state)
+    :ok
+  end
 end

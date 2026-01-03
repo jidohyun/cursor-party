@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <.live_title default="CursorParty" suffix=" · Phoenix Framework">
       {assigns[:page_title]}
     </.live_title>
@@ -30,7 +34,7 @@
       })();
     </script>
   </head>
-  <body>
+  <body class="bg-gray-900 text-white antialiased overflow-hidden touch-none selection:bg-none">
     {@inner_content}
   </body>
 </html>

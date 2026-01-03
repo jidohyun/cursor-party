@@ -9,13 +9,15 @@ defmodule CursorPartyWeb.PageLive do
   # ============================================================================
   # 1. Mount (초기화)
   # ============================================================================
+  # ============================================================================
+  # 1. Mount (초기화)
+  # ============================================================================
   def mount(_params, session, socket) do
     user_id = session["user_uuid"] || "guest_#{:rand.uniform(10000)}"
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(CursorParty.PubSub, @topic)
       Phoenix.PubSub.subscribe(CursorParty.PubSub, @boss_topic)
-      # 1초마다 틱 (골드 갱신, 리더보드, 자동사냥 동기화)
       :timer.send_interval(1000, self(), :tick)
       GameServer.track_visit(user_id)
     end
@@ -24,15 +26,19 @@ defmodule CursorPartyWeb.PageLive do
     saved_profile = if connected?(socket), do: GameServer.get_profile(user_id), else: nil
 
     # 내 스탯 초기화
-    total_damage = saved_profile[:total_damage] || 0
-    gold = saved_profile[:gold] || 0
-    power = saved_profile[:power] || 1
-    # [신규] auto_damage 로드
-    my_auto = saved_profile[:auto_damage] || 0
-    my_items = saved_profile[:items] || %{}
+    total_damage = if saved_profile, do: Map.get(saved_profile, :total_damage, 0), else: 0
+    gold = if saved_profile, do: Map.get(saved_profile, :gold, 0), else: 0
+    power = if saved_profile, do: Map.get(saved_profile, :power, 1), else: 1
+    my_auto = if saved_profile, do: Map.get(saved_profile, :auto_damage, 0), else: 0
+    my_items = if saved_profile, do: Map.get(saved_profile, :items, %{}), else: %{}
+    my_skill_cd = if saved_profile, do: Map.get(saved_profile, :skill_cd, %{}), else: %{}
 
     # 상점 카탈로그 로드
     shop_catalog = GameServer.get_shop_items()
+
+    # 오토 대미지 재계산
+    my_auto_calc = calculate_auto_damage(my_items, shop_catalog)
+    final_auto = if my_auto_calc > my_auto, do: my_auto_calc, else: my_auto
 
     # 게임 상태 로드
     game_state =
@@ -40,75 +46,61 @@ defmodule CursorPartyWeb.PageLive do
         do: GameServer.get_state(),
         else: %{hp: 2000, boss_level: 1, winner: nil, chat_history: []}
 
-    my_skill_cd = saved_profile[:skill_cd] || %{}
-
     initial_assigns = %{
       cursors: [],
       leaderboard: [],
-
-      # 보스 정보
       boss_hp: game_state.hp,
       boss_level: Map.get(game_state, :boss_level, 1),
-
-      # 우승자
       winner: nil,
       winner_countdown: nil,
-
-      # 채팅
       chat_messages: Map.get(game_state, :chat_history, []),
       chat_input: "",
-
-      # 내 정보
       my_id: user_id,
       joined?: false,
       my_name: nil,
       my_country: nil,
       form: to_form(%{"name" => "", "country" => "KR"}),
-
-      # 알림
       alert_msg: nil,
       banned_until: nil,
-
-      # 내 스탯
       my_damage: total_damage,
       my_gold: gold,
       my_power: power,
-      # 자동 대미지 (초당)
-      my_auto: my_auto,
-      # 보유 아이템 목록
+      my_auto: final_auto,
       my_items: my_items,
-      #
       my_skill_cd: my_skill_cd,
-
-      # 상점 UI 상태
       show_shop: false,
-      # [신규] 상점 탭 (:weapon 또는 :skill)
       active_shop_tab: :weapon,
-      shop_catalog: shop_catalog
+      shop_catalog: shop_catalog,
+      mobile_tab: :chat
     }
 
     socket = assign(socket, initial_assigns)
 
-    # 자동 로그인 처리
+    # [수정] 자동 로그인 처리 (Map.get 사용으로 안전하게 변경)
     socket =
       if saved_profile do
+        # DB에 국가 정보가 없으면 기본값 "KR" 사용
+        safe_country = Map.get(saved_profile, :raw_country) || "KR"
+        safe_name = Map.get(saved_profile, :name) || "Guest"
+        safe_color = Map.get(saved_profile, :color) || generate_color(user_id)
+
         if connected?(socket) do
           Presence.track(self(), @topic, user_id, %{
             x: 50,
             y: 50,
             id: user_id,
-            name: saved_profile.name,
-            country: saved_profile.raw_country,
-            flag: saved_profile.country,
-            color: saved_profile.color,
+            name: safe_name,
+            country: safe_country,
+            flag: country_to_flag(safe_country),
+            color: safe_color,
             online_at: System.system_time(:millisecond)
           })
         end
 
         assign(socket,
           joined?: true,
-          my_name: saved_profile.name,
-          my_country: saved_profile.raw_country
+          my_name: safe_name,
+          my_country: safe_country
         )
       else
         if connected?(socket) do
@@ -118,7 +110,7 @@ defmodule CursorPartyWeb.PageLive do
             id: user_id,
             name: nil,
             country: nil,
-            color: nil,
+            color: generate_color(user_id),
             online_at: System.system_time(:millisecond)
           })
         end
@@ -128,11 +120,7 @@ defmodule CursorPartyWeb.PageLive do
 
     leaderboard = if connected?(socket), do: build_leaderboard(), else: []
 
-    {:ok,
-     assign(socket,
-       cursors: list_present_cursors(),
-       leaderboard: leaderboard
-     )}
+    {:ok, assign(socket, cursors: list_present_cursors(), leaderboard: leaderboard)}
   end
 
   # ============================================================================
@@ -145,8 +133,8 @@ defmodule CursorPartyWeb.PageLive do
 
     if String.length(name) >= 3 and String.length(name) <= 20 do
       my_id = socket.assigns.my_id
-      color = "#" <> Base.encode16(:crypto.strong_rand_bytes(3))
-      flag = get_flag_emoji(country)
+      color = generate_color(my_id)
+      flag = country_to_flag(country)
 
       profile = %{
         name: name,
@@ -277,7 +265,7 @@ defmodule CursorPartyWeb.PageLive do
              my_auto: new_auto
            )}
 
-        # 4개 리턴 (구버전 호환)
+        # 4개 리턴 (구버전 호환용)
         {:ok, new_gold, new_power, new_items} ->
           socket = push_event(socket, "play-buy-sound", %{})
           {:noreply, assign(socket, my_gold: new_gold, my_power: new_power, my_items: new_items)}
@@ -347,6 +335,7 @@ defmodule CursorPartyWeb.PageLive do
 
   # 3-2. 보스 상태 업데이트
   def handle_info({:boss_update, new_hp, level, winner}, socket) do
+    IO.puts(">>> [PageLive] 보스 업데이트 수신! HP: #{new_hp}")
     socket = assign(socket, boss_hp: new_hp, boss_level: level)
 
     socket =
@@ -422,6 +411,10 @@ defmodule CursorPartyWeb.PageLive do
     if socket.assigns[:my_id], do: Presence.untrack(self(), @topic, socket.assigns.my_id)
   end
 
+  def handle_event("set-mobile-tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, mobile_tab: String.to_existing_atom(tab))}
+  end
+
   # ============================================================================
   # Helpers
   # ============================================================================
@@ -431,10 +424,30 @@ defmodule CursorPartyWeb.PageLive do
     |> Enum.map(fn {_, v} -> v.metas |> Enum.max_by(&(&1[:online_at] || 0)) end)
   end
 
-  defp get_flag_emoji(country_code) do
+  # [수정] 함수 이름을 country_to_flag로 통일
+  defp country_to_flag(country_code) do
     country_code |> String.to_charlist() |> Enum.map(&(&1 + 127_397)) |> List.to_string()
   rescue
     _ -> "🏳️"
+  end
+
+  # [신규] 유저 ID 기반 고정 컬러 생성
+  defp generate_color(user_id) do
+    <<r::8, g::8, b::8, _::binary>> = :crypto.hash(:md5, user_id)
+    "##{Base.encode16(<<r, g, b>>)}"
+  end
+
+  # [신규] 오토 대미지 계산
+  defp calculate_auto_damage(user_items, shop_catalog) do
+    Enum.reduce(user_items, 0, fn {item_id, count}, acc ->
+      item_def = shop_catalog[item_id]
+
+      if item_def && item_def.type == :auto do
+        acc + item_def.value * count
+      else
+        acc
+      end
+    end)
   end
 
   # 데이터 기반 리더보드 생성

@@ -7,7 +7,26 @@
 # General application configuration
 import Config
 
+config :cursor_party, CursorParty.Repo,
+  database: "cursor_party_repo",
+  username: "user",
+  password: "pass",
+  hostname: "localhost"
+
+config :cursor_party, CursorParty.Repo,
+  database: "cursor_party_repo",
+  username: "user",
+  password: "pass",
+  hostname: "localhost"
+
+config :cursor_party, CursorParty.Repo,
+  database: "cursor_party_repo",
+  username: "user",
+  password: "pass",
+  hostname: "localhost"
+
 config :cursor_party,
+  ecto_repos: [CursorParty.Repo],
   generators: [timestamp_type: :utc_datetime]
 
 # Configure the endpoint
