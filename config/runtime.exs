@@ -21,9 +21,6 @@ if System.get_env("PHX_SERVER") do
 end
 
 if config_env() == :prod do
-  # ============================================================================
-  # [추가됨] 데이터베이스 설정 (Koyeb의 DATABASE_URL 환경 변수 사용)
-  # ============================================================================
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """
@@ -31,13 +28,18 @@ if config_env() == :prod do
       For example: ecto://USER:PASS@HOST/DATABASE
       """
 
-  maybe_ipv6 = if System.get_env("ECTO_IPV6") in ["true", "1"], do: [:inet6], else: []
+  maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
   config :cursor_party, CursorParty.Repo,
-    # ssl: true,
+    # ... 기존 설정들 ...
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    socket_options: maybe_ipv6
+    socket_options: maybe_ipv6,
+
+    # 👇 [중요] 이 줄을 추가해주세요!
+    ssl: true,
+    # 혹은 인증서 검증 문제가 생길 경우 아래 옵션을 씁니다 (대부분의 PaaS에서 필요)
+    ssl_opts: [verify: :verify_none]
 
   # ============================================================================
   # [기존] Secret Key Base 및 Endpoint 설정
