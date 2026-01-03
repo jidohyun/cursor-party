@@ -8,16 +8,26 @@ defmodule CursorParty.Release do
   import Ecto.Query
 
   def reset_db do
+    # 1. 앱 설정 로드
     Application.load(:cursor_party)
+
+    # 2. [핵심 수정] DB 연결에 필요한 필수 앱들을 수동으로 시작
+    # Koyeb DB는 SSL 연결이 필수이므로 :ssl 앱을 꼭 켜야 합니다.
+    IO.puts("🔌 필수 앱 시작 중...")
+    {:ok, _} = Application.ensure_all_started(:ssl)
+    {:ok, _} = Application.ensure_all_started(:postgrex)
+    {:ok, _} = Application.ensure_all_started(:ecto_sql)
+
+    # 3. 이제 Repo 시작 (이제 에러가 안 날 겁니다)
     {:ok, _} = Repo.start_link()
 
     IO.puts("⚠️  [Koyeb] 데이터베이스 초기화를 시작합니다...")
 
-    # 1. 데이터 삭제 (순서 중요)
+    # 4. 데이터 삭제
     Repo.delete_all(Profile)
     Repo.delete_all(GameState)
 
-    # 2. 초기 데이터 주입
+    # 5. 초기 데이터 주입
     Repo.insert!(%GameState{
       key: "boss",
       value: %{"hp" => 2000, "level" => 1, "winner" => nil}
@@ -34,5 +44,8 @@ defmodule CursorParty.Release do
     })
 
     IO.puts("✅  [Koyeb] DB 초기화 및 시드 데이터 주입 완료!")
+
+    # 작업이 끝났으니 프로세스 종료 (깔끔하게)
+    :init.stop()
   end
 end
