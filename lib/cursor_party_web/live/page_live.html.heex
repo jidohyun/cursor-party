@@ -17,6 +17,8 @@
       id="boss-target"
       phx-hook="BossEffect"
       phx-click="hit-boss"
+      data-power={@my_power}
+      data-locale={@locale}
       class={"absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
                    cursor-pointer transition-transform active:scale-95 boss-hit-anim select-none z-10
                    w-48 h-48 lg:w-64 lg:h-64 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(0,0,0,0.5)]
@@ -27,11 +29,12 @@
       </div>
 
       <div class="absolute -bottom-8 lg:-bottom-10 text-white font-bold text-sm lg:text-lg drop-shadow-md whitespace-nowrap">
-        Lv.{@boss_level} {boss_style.name}
+        {gettext("Lv.")}{@boss_level} {boss_style.name}
       </div>
 
       <div class="absolute -bottom-14 lg:-bottom-16 w-32 lg:w-48 h-3 lg:h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-600">
-        <% max_hp = @boss_level * 2500 %>
+        <% max_hp = CursorParty.GameCore.calculate_boss_hp(@boss_level) %>
+
         <div
           class="h-full bg-red-500 transition-all duration-100 ease-out"
           style={"width: #{(@boss_hp / max_hp) * 100}%"}
@@ -39,10 +42,7 @@
         </div>
       </div>
       <div class="absolute -bottom-20 text-[10px] lg:text-xs text-gray-400 font-mono">
-        {Number.Delimit.number_to_delimited(@boss_hp, precision: 0)} / {Number.Delimit.number_to_delimited(
-          max_hp,
-          precision: 0
-        )}
+        {format_number(@boss_hp, @locale)} / {format_number(max_hp, @locale)}
       </div>
     </div>
 
@@ -70,7 +70,7 @@
           >
             <span>{cursor[:flag] || cursor[:country] || "🌍"}</span>
 
-            <span>{cursor[:name] || "Guest"}</span>
+            <span>{cursor[:name] || gettext("Guest")}</span>
 
             <span class="opacity-50">|</span>
 
@@ -117,16 +117,26 @@
         <div class="bg-black/60 px-3 py-1 rounded-full border border-white/10 flex items-center gap-2 backdrop-blur-md">
           <span class="text-yellow-400 text-xs">💰</span>
           <span class="text-white text-xs font-mono font-bold">
-            {Number.Delimit.number_to_delimited(@my_gold, precision: 0)}
+            {format_number(@my_gold, @locale)}
           </span>
         </div>
-        <div class="bg-black/60 px-3 py-1 rounded-full border border-white/10 text-[10px] text-gray-300 backdrop-blur-md w-fit">
-          ⚡ {Number.Delimit.number_to_delimited(@my_power + @my_auto, precision: 0)}
+
+        <div class="flex gap-1">
+          <div class="bg-black/60 px-2 py-1 rounded-full border border-white/10 text-[10px] text-red-300 backdrop-blur-md flex items-center gap-1">
+            <span>⚡</span>
+            <span>{format_number(@my_power, @locale)}</span>
+          </div>
         </div>
       </div>
     <% end %>
 
     <div class="flex gap-2 pointer-events-auto">
+      <button
+        phx-click="toggle-lang"
+        class="w-8 h-8 flex items-center justify-center bg-black/60 rounded-full border border-white/10 text-lg backdrop-blur-md"
+      >
+        {if @locale == "en", do: "🇰🇷", else: "🇺🇸"}
+      </button>
       <div class="bg-black/60 px-2 py-1 rounded-full border border-white/10 text-[10px] text-gray-400 backdrop-blur-md h-8 flex items-center">
         👥 {length(@leaderboard)}
       </div>
@@ -148,14 +158,14 @@
       class={"flex flex-col items-center p-2 w-full transition-colors " <> (if @mobile_tab == :chat, do: "text-yellow-400", else: "text-gray-500")}
     >
       <span class="text-xl">💬</span>
-      <span class="text-[10px] uppercase font-bold mt-0.5">Chat</span>
+      <span class="text-[10px] uppercase font-bold mt-0.5">{gettext("Chat")}</span>
     </button>
     <button
       phx-click="toggle-shop"
       class="flex flex-col items-center p-2 w-full transition-colors text-gray-500 hover:text-yellow-400"
     >
       <span class="text-xl">🛒</span>
-      <span class="text-[10px] uppercase font-bold mt-0.5">Shop</span>
+      <span class="text-[10px] uppercase font-bold mt-0.5">{gettext("Shop")}</span>
     </button>
     <button
       phx-click="set-mobile-tab"
@@ -163,14 +173,14 @@
       class={"flex flex-col items-center p-2 w-full transition-colors " <> (if @mobile_tab == :leaderboard, do: "text-yellow-400", else: "text-gray-500")}
     >
       <span class="text-xl">🏆</span>
-      <span class="text-[10px] uppercase font-bold mt-0.5">Rank</span>
+      <span class="text-[10px] uppercase font-bold mt-0.5">{gettext("Rank")}</span>
     </button>
   </div>
 
   <%= if @mobile_tab == :chat do %>
-    <div class="lg:hidden absolute bottom-16 left-0 w-full h-64 bg-black/80 backdrop-blur-md border-t border-white/10 z-40 flex flex-col animate-slide-up pointer-events-auto">
+    <div class="lg:hidden absolute bottom-16 left-0 w-full h-64 bg-black/80 backdrop-blur-md border-t border-white/10 z-[160] flex flex-col animate-slide-up pointer-events-auto">
       <div class="px-4 py-2 border-b border-white/10 flex justify-between items-center bg-white/5">
-        <span class="text-xs font-bold text-gray-300">💬 Chat</span>
+        <span class="text-xs font-bold text-gray-300">💬 {gettext("Chat")}</span>
         <button phx-click="set-mobile-tab" phx-value-tab="none" class="text-gray-400 px-2">
           ✕
         </button>
@@ -200,7 +210,7 @@
             name="msg"
             value={@chat_input}
             autocomplete="off"
-            placeholder="Type here..."
+            placeholder={gettext("Type here...")}
             class="w-full bg-black/40 border border-white/20 rounded px-2 py-2 text-xs text-white focus:outline-none focus:border-yellow-500"
           />
         </form>
@@ -211,7 +221,7 @@
   <%= if @mobile_tab == :leaderboard do %>
     <div class="lg:hidden absolute bottom-16 left-0 w-full h-80 bg-black/80 backdrop-blur-md border-t border-white/10 z-40 flex flex-col animate-slide-up pointer-events-auto">
       <div class="px-4 py-2 border-b border-white/10 flex justify-between items-center bg-white/5">
-        <span class="text-xs font-bold text-gray-300">🏆 Leaderboard</span>
+        <span class="text-xs font-bold text-gray-300">🏆 {gettext("Leaderboard")}</span>
         <button phx-click="set-mobile-tab" phx-value-tab="none" class="text-gray-400 px-2">
           ✕
         </button>
@@ -227,7 +237,9 @@
               <span class="truncate max-w-[100px] text-gray-300">{user.name}</span>
             </div>
             <span class="font-mono text-gray-400">
-              {Number.Delimit.number_to_delimited(user.total_damage, precision: 0)}
+              <span class="text-white/80 font-mono">
+                {format_number(user.total_damage, @locale)}
+              </span>
             </span>
           </div>
         <% end %>
@@ -248,49 +260,70 @@
         </div>
         <div class="px-5 py-3 space-y-2">
           <div class="flex items-center justify-between gap-4 text-xs">
-            <span class="text-gray-400 flex items-center gap-1">⚔️ Total Damage</span>
+            <span class="text-gray-400 flex items-center gap-1">⚔️ {gettext("Total Damage")}</span>
             <span class="text-white font-mono font-bold">
-              {Number.Delimit.number_to_delimited(@my_damage, precision: 0)}
+              {format_number(@my_damage, @locale)}
             </span>
           </div>
           <div class="flex items-center justify-between gap-4 text-xs">
-            <span class="text-yellow-400 flex items-center gap-1">💰 Gold</span>
+            <span class="text-yellow-400 flex items-center gap-1">💰 {gettext("Gold")}</span>
             <span class="text-yellow-300 font-mono font-bold text-sm">
-              {Number.Delimit.number_to_delimited(@my_gold, precision: 0)} G
+              {format_number(@my_gold, @locale)}
+              {gettext("G")}
             </span>
           </div>
           <div class="flex items-center justify-between gap-4 text-xs">
-            <span class="text-red-400 flex items-center gap-1">⚡ Power</span>
-            <span class="text-red-300 font-mono font-bold">Lv.{@my_power}</span>
+            <span class="text-red-400 flex items-center gap-1">⚡ {gettext("Power")}</span>
+            <span class="text-red-300 font-mono font-bold">{gettext("Lv.")}{@my_power}</span>
           </div>
         </div>
         <div class="px-5 py-3 border-t border-white/10 bg-white/5">
           <button
-            phx-click="toggle-shop"
+            phx-click={
+              JS.show(
+                to: "#shop-modal",
+                display: "flex",
+                transition:
+                  {"ease-out duration-200", "opacity-0 scale-95", "opacity-100 scale-100"}
+              )
+              |> JS.dispatch("js:play-shop-sound")
+            }
             class="w-full cursor-pointer py-2 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white font-bold rounded-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 border border-yellow-400/30 group"
           >
             <span class="text-xl group-hover:rotate-12 transition-transform">🛒</span>
-            <span>ITEM SHOP</span>
+            <span>{gettext("ITEM SHOP")}</span>
           </button>
+
           <div class="text-center mt-1">
             <span class="text-[10px] text-gray-400">
-              Lv.{@my_power} Power / {map_size(@my_items)} Items
+              {gettext("Lv.")}{@my_power} {gettext("Power")} / {map_size(@my_items)} {gettext(
+                "Items"
+              )}
             </span>
           </div>
         </div>
       </div>
-      <button
-        phx-click="logout"
-        class="bg-red-500/80 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-full backdrop-blur-md shadow-lg transition-all hover:scale-105 flex items-center gap-2 group border border-red-400/30"
-      >
-        <span>🚪 Logout</span>
-      </button>
+      <div class="flex flex-col items-end gap-2">
+        <button
+          phx-click="toggle-transfer"
+          class="bg-blue-500/80 hover:bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-full backdrop-blur-md shadow-lg transition-all hover:scale-105 flex items-center gap-2 group border border-blue-400/30"
+        >
+          <span>🔄 {gettext("Data Sync")}</span>
+        </button>
+
+        <button
+          phx-click="logout"
+          class="bg-red-500/80 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-full backdrop-blur-md shadow-lg transition-all hover:scale-105 flex items-center gap-2 group border border-red-400/30"
+        >
+          <span>🚪 {gettext("Logout")}</span>
+        </button>
+      </div>
     <% end %>
   </div>
 
   <div class="hidden lg:block absolute top-6 left-6 z-40 bg-black/50 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-xl min-w-[220px]">
     <h3 class="text-white font-bold text-sm mb-3 flex items-center gap-2 border-b border-white/10 pb-2">
-      <span class="text-yellow-400">🏆</span> LEADERBOARD
+      <span class="text-yellow-400">🏆</span> {gettext("LEADERBOARD")}
     </h3>
     <ul class="space-y-2">
       <%= for {user, idx} <- Enum.with_index(@leaderboard) do %>
@@ -305,17 +338,21 @@
             </span>
           </div>
           <span class="text-white/80 font-mono">
-            {Number.Delimit.number_to_delimited(user.total_damage, precision: 0)}
+            <span class="text-white/80 font-mono">
+              {format_number(user.total_damage, @locale)}
+            </span>
           </span>
         </li>
       <% end %>
       <%= if @leaderboard == [] do %>
-        <li class="text-gray-500 text-xs italic text-center py-2">No players yet...</li>
+        <li class="text-gray-500 text-xs italic text-center py-2">
+          {gettext("No players yet...")}
+        </li>
       <% end %>
     </ul>
   </div>
 
-  <div class="hidden lg:flex absolute bottom-6 left-6 z-40 flex-col gap-2 w-[300px] pointer-events-auto">
+  <div class="hidden lg:flex absolute bottom-6 left-6 z-[160] flex-col gap-2 w-[300px] pointer-events-auto">
     <div class="bg-black/60 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden flex flex-col h-[200px] transition-opacity duration-300 hover:opacity-100 opacity-80">
       <div
         id="chat-box"
@@ -331,7 +368,7 @@
           </div>
         <% end %>
         <%= if @chat_messages == [] do %>
-          <div class="text-gray-500 italic text-center mt-10">Say hello! 👋</div>
+          <div class="text-gray-500 italic text-center mt-10">{gettext("Say hello! 👋")}</div>
         <% end %>
       </div>
       <%= if @joined? do %>
@@ -345,37 +382,50 @@
             name="msg"
             value={@chat_input}
             autocomplete="off"
-            placeholder="Type a message..."
+            placeholder={gettext("Type a message...")}
             class="w-full bg-black/30 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-yellow-500/50 transition-colors"
             maxlength="50"
           />
         </form>
       <% else %>
         <div class="p-2 text-center text-xs text-gray-500 bg-black/20 border-t border-white/10">
-          Join to chat
+          {gettext("Join to chat")}
         </div>
       <% end %>
     </div>
     <div class="bg-black/50 backdrop-blur-md p-3 rounded-xl border border-white/10 text-gray-300 shadow-lg transition-opacity hover:opacity-100 opacity-50 hover:border-white/30 text-xs">
       <div class="font-bold text-white mb-1 flex items-center gap-2 border-b border-white/10 pb-1">
-        <span>💡 How to Play</span>
+        <span>💡 {gettext("How to Play")}</span>
       </div>
       <ul class="space-y-1 list-disc list-inside opacity-90">
-        <li>Move cursor to interact</li>
-        <li>Click BOSS: <span class="text-red-400 font-bold">-1 HP</span></li>
-        <li>Critical: <span class="text-yellow-400 font-bold">2x DMG & Gold</span></li>
-        <li>Use Gold to upgrade Power!</li>
+        <li>{gettext("Move cursor to interact")}</li>
+        <li>
+          {gettext("Click BOSS:")} <span class="text-red-400 font-bold">{gettext("-1 HP")}</span>
+        </li>
+        <li>
+          {gettext("Critical:")}
+          <span class="text-yellow-400 font-bold">{gettext("2x DMG & Gold")}</span>
+        </li>
+        <li>{gettext("Use Gold to upgrade Power!")}</li>
       </ul>
     </div>
   </div>
 
   <div class="hidden lg:flex absolute bottom-6 right-6 z-10 flex-col items-end gap-3">
     <button
+      phx-click="toggle-lang"
+      class="bg-black/50 hover:bg-black/80 text-white p-3 rounded-full backdrop-blur-md border border-white/10 transition-all hover:scale-110 hover:border-white/30 mb-2 font-bold text-lg"
+      title={gettext("Change Language")}
+    >
+      {if @locale == "en", do: "🇺🇸", else: "🇰🇷"}
+    </button>
+
+    <button
       id="sound-btn"
       phx-hook="SoundControl"
       phx-update="ignore"
       class="bg-black/50 hover:bg-black/80 text-white p-3 rounded-full backdrop-blur-md border border-white/10 transition-all hover:scale-110 hover:border-white/30 mb-2"
-      title="Toggle Sound"
+      title={gettext("Toggle Sound")}
     >
       <svg class="w-5 h-5 icon-on" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -409,7 +459,7 @@
         href="https://github.com/jidohyun/cursor-party"
         target="_blank"
         class="bg-black/50 hover:bg-black/80 text-white p-3 rounded-full backdrop-blur-md border border-white/10 transition-all hover:scale-110 hover:border-white/30 group"
-        title="View Source"
+        title={gettext("View Source")}
       >
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
           <path
@@ -424,7 +474,7 @@
         href="https://velog.io/@do-hyun123/posts"
         target="_blank"
         class="bg-black/50 hover:bg-black/80 text-white p-3 rounded-full backdrop-blur-md border border-white/10 transition-all hover:scale-110 hover:border-white/30 group"
-        title="Visit Blog"
+        title={gettext("Visit Blog")}
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -440,10 +490,10 @@
 
     <div class="text-right">
       <div class="text-gray-500 text-[10px] font-mono mb-0.5">
-        Ver 2.2.0 • Mobile Update • Database Update
+        Ver 3.0.0
       </div>
       <div class="text-gray-400 text-xs font-medium bg-black/30 px-2 py-1 rounded backdrop-blur-sm border border-white/5">
-        Powered by <span class="text-purple-400">Elixir</span>
+        {gettext("Powered by")} <span class="text-purple-400">Elixir</span>
         & <span class="text-orange-400">Phoenix LiveView</span>
       </div>
     </div>
@@ -455,16 +505,20 @@
         <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
         </div>
         <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-2 drop-shadow-sm">
-          CURSOR PARTY
+          {gettext("CURSOR PARTY")}
         </h1>
-        <p class="text-gray-400 mb-8 text-sm">Join the massive multiplayer boss raid!</p>
+        <p class="text-gray-400 mb-8 text-sm">
+          {gettext("Join the massive multiplayer boss raid!")}
+        </p>
         <.form for={@form} phx-submit="join" class="flex flex-col gap-4">
           <div class="text-left">
-            <label class="text-xs font-bold text-gray-400 ml-1 uppercase">Nickname</label>
+            <label class="text-xs font-bold text-gray-400 ml-1 uppercase">
+              {gettext("Nickname")}
+            </label>
             <input
               type="text"
               name="name"
-              placeholder="Enter your name"
+              placeholder={gettext("Enter your name")}
               required
               minlength="3"
               maxlength="20"
@@ -473,146 +527,359 @@
             />
           </div>
           <div class="text-left">
-            <label class="text-xs font-bold text-gray-400 ml-1 uppercase">Region</label>
+            <label class="text-xs font-bold text-gray-400 ml-1 uppercase">
+              {gettext("Region")}
+            </label>
             <select
               name="country"
               class="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-colors appearance-none"
             >
-              <option value="KR">🇰🇷 Korea</option>
-              <option value="US">🇺🇸 USA</option>
-              <option value="JP">🇯🇵 Japan</option>
-              <option value="CN">🇨🇳 China</option>
-              <option value="EU">🇪🇺 Europe</option>
-              <option value="WO">🌍 World</option>
+              <option value="KR">🇰🇷 {gettext("Korea")}</option>
+              <option value="US">🇺🇸 {gettext("USA")}</option>
+              <option value="JP">🇯🇵 {gettext("Japan")}</option>
+              <option value="CN">🇨🇳 {gettext("China")}</option>
+              <option value="EU">🇪🇺 {gettext("Europe")}</option>
+              <option value="WO">🌍 {gettext("World")}</option>
             </select>
           </div>
           <button
             type="submit"
             class="mt-4 w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-3 rounded-lg shadow-lg transform transition-all hover:scale-[1.02] active:scale-95"
           >
-            GAME START
+            {gettext("GAME START")}
           </button>
         </.form>
       </div>
     </div>
   <% end %>
+  
+<!-- 모달 본체 -->
+  <div
+    id="shop-modal"
+    class="hidden fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center"
+    phx-window-keydown={
+      JS.hide(
+        to: "#shop-modal",
+        transition: {"ease-in duration-200", "opacity-100 scale-100", "opacity-0 scale-95"}
+      )
+    }
+    phx-key="escape"
+  >
+    <div
+      class="bg-gray-900 border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative"
+      phx-click-away={
+        JS.hide(
+          to: "#shop-modal",
+          transition: {"ease-in duration-200", "opacity-100 scale-100", "opacity-0 scale-95"}
+        )
+      }
+    >
+      <!-- 상단 헤더 -->
+      <div class="bg-gradient-to-r from-gray-800 to-gray-900 px-6 py-4 border-b border-white/10 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">🛒</span>
+          <div>
+            <h2 class="text-xl font-bold text-white">{gettext("Item Shop")}</h2>
+            <p class="text-xs text-gray-400">{gettext("Upgrade your gear & skills!")}</p>
+          </div>
+        </div>
+        <div class="bg-black/40 px-3 py-1.5 rounded-lg border border-yellow-500/30 flex items-center gap-2">
+          <span class="text-yellow-400 text-sm">💰</span>
+          <span class="text-yellow-300 font-mono font-bold">
+            {format_number(@my_gold, @locale)}
+            {gettext("G")}
+          </span>
+        </div>
+      </div>
+      
+<!-- 탭 버튼 -->
+      <div class="flex border-b border-white/5 bg-black/20" id="shop-tabs">
+        <button
+          id="shop-tab-basic"
+          phx-click={switch_shop_tab("#shop-tab-basic", "#shop-panel-basic")}
+          class="shop-tab flex-1 cursor-pointer py-3 text-xs font-bold uppercase tracking-wider transition-colors bg-white/10 text-white border-b-2 border-yellow-500"
+        >
+          💪 {gettext("Basic")}
+        </button>
 
-  <%= if @show_shop do %>
-    <div class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
-      <div
-        class="bg-gray-900 border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative transform scale-100 animate-in zoom-in-95 duration-200"
-        phx-click-away="close-shop"
-        phx-window-keydown="close-shop"
-        phx-key="escape"
-      >
-        <div class="bg-gradient-to-r from-gray-800 to-gray-900 px-6 py-4 border-b border-white/10 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <span class="text-2xl">🛒</span>
-            <div>
-              <h2 class="text-xl font-bold text-white">Item Shop</h2>
-              <p class="text-xs text-gray-400">Upgrade your gear & skills!</p>
-            </div>
-          </div>
-          <div class="bg-black/40 px-3 py-1.5 rounded-lg border border-yellow-500/30 flex items-center gap-2">
-            <span class="text-yellow-400 text-sm">💰</span>
-            <span class="text-yellow-300 font-mono font-bold">
-              {Number.Delimit.number_to_delimited(@my_gold, precision: 0)} G
-            </span>
-          </div>
-        </div>
-        <div class="flex border-b border-white/5 bg-black/20">
-          <button
-            phx-click="set-shop-tab"
-            phx-value-tab="weapon"
-            class={"flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors " <> (if @active_shop_tab == :weapon, do: "bg-white/10 text-white border-b-2 border-yellow-500", else: "text-gray-500 hover:text-gray-300 hover:bg-white/5")}
-          >
-            ⚔️ Weapons
-          </button>
-          <button
-            phx-click="set-shop-tab"
-            phx-value-tab="skill"
-            class={"flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors " <> (if @active_shop_tab == :skill, do: "bg-white/10 text-white border-b-2 border-yellow-500", else: "text-gray-500 hover:text-gray-300 hover:bg-white/5")}
-          >
-            📜 Skills
-          </button>
-        </div>
-        <div class="p-6 max-h-[50vh] overflow-y-auto custom-scrollbar space-y-3 bg-black/20">
-          <%= for {id, item} <- Enum.sort_by(@shop_catalog, fn {_, v} -> v.base_cost end) |> Enum.filter(fn {_, v} -> v.category == @active_shop_tab end) do %>
-            <% current_level = Map.get(@my_items, id, 0)
-            is_skill = item.type == :skill
-            is_sold_out = is_skill and current_level >= 1
-            cost = floor(item.base_cost * :math.pow(item.cost_factor, current_level))
-            can_buy = not is_sold_out and @my_gold >= cost %>
-            <div class={"relative group flex items-center justify-between p-3 rounded-xl border transition-all " <> (if can_buy, do: "bg-white/5 border-white/10 hover:bg-white/10", else: "bg-black/40 border-white/5 opacity-60 grayscale")}>
-              <div class="flex items-center gap-4">
-                <div class={"w-12 h-12 rounded-lg flex items-center justify-center text-2xl shadow-inner " <> (if can_buy, do: "bg-gray-800", else: "bg-black")}>
-                  {item.icon}
-                </div>
-                <div>
-                  <div class="flex items-center gap-2">
-                    <h3 class="font-bold text-gray-200">{item.name}</h3>
-                    <%= if is_skill do %>
-                      <%= if is_sold_out do %>
-                        <span class="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded border border-green-500/30">
-                          LEARNED
-                        </span>
-                      <% else %>
-                        <span class="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30">
-                          SKILL
+        <button
+          id="shop-tab-weapon"
+          phx-click={switch_shop_tab("#shop-tab-weapon", "#shop-panel-weapon")}
+          class="shop-tab flex-1 cursor-pointer py-3 text-xs font-bold uppercase tracking-wider transition-colors text-gray-500 hover:text-gray-300 hover:bg-white/5"
+        >
+          ⚔️ {gettext("Weapons")}
+        </button>
+
+        <button
+          id="shop-tab-skill"
+          phx-click={switch_shop_tab("#shop-tab-skill", "#shop-panel-skill")}
+          class="shop-tab flex-1 cursor-pointer py-3 text-xs font-bold uppercase tracking-wider transition-colors text-gray-500 hover:text-gray-300 hover:bg-white/5"
+        >
+          📜 {gettext("Skills")}
+        </button>
+      </div>
+      
+<!-- 아이템 리스트 -->
+      <div class="bg-black/20 rounded-xl overflow-hidden flex flex-col">
+        <div class="max-h-[60vh] overflow-y-auto custom-scrollbar p-2">
+          <!-- BASIC 패널 -->
+          <div id="shop-panel-basic" class="grid grid-cols-1 gap-2">
+            <%= for {id, item} <- @shop_items, item.category == :basic do %>
+              <% level = Map.get(@my_items, id, 0)
+              cost = CursorParty.GameCore.get_item_cost(item.id, level)
+              is_max = cost == :max
+              can_buy = !is_max and @my_gold >= cost %>
+
+              <div class={
+                "relative flex items-center justify-between p-3 rounded-lg border-2 transition-all " <>
+                (if is_max,
+                   do: "bg-gray-800/50 border-gray-600 opacity-70",
+                   else: "bg-black/40 border-white/10 hover:border-white/30")
+              }>
+                <div class="flex items-center gap-3">
+                  <div class="text-3xl">{item.icon}</div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h3 class={
+                        "font-bold " <>
+                          (if is_max, do: "text-gray-400 line-through", else: "text-gray-200")
+                      }>
+                        {Gettext.gettext(CursorPartyWeb.Gettext, item.name)}
+                      </h3>
+                      <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 font-mono">
+                        Lv.{level}
+                      </span>
+                      <%= if is_max do %>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-900 text-red-200 font-bold border border-red-500/50">
+                          MAX
                         </span>
                       <% end %>
-                    <% else %>
-                      <span class="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/30">
-                        Lv.{current_level}
-                      </span>
-                    <% end %>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                      {Gettext.gettext(CursorPartyWeb.Gettext, item.desc)}
+                    </p>
                   </div>
-                  <p class="text-xs text-gray-400 mt-0.5">{item.desc}</p>
                 </div>
-              </div>
-              <%= if is_sold_out do %>
-                <div class="px-4 py-2 font-bold text-xs text-green-500 border border-green-500/30 rounded-lg bg-green-500/10">
-                  SOLD OUT
-                </div>
-              <% else %>
+
                 <button
                   phx-click="buy-item"
-                  phx-value-id={id}
+                  phx-value-id={item.id}
                   disabled={!can_buy}
-                  class={"px-4 py-2 rounded-lg font-bold text-xs shadow-lg transition-transform active:scale-95 flex flex-col items-end min-w-[80px] " <> (if can_buy, do: "bg-yellow-500 hover:bg-yellow-400 text-black", else: "bg-gray-700 text-gray-400 cursor-not-allowed")}
+                  class={
+                    "px-4 py-2 rounded-lg font-bold text-xs transition-all flex flex-col items-center min-w-[80px] " <>
+                      cond do
+                        is_max ->
+                          "bg-gray-700 text-gray-400 cursor-not-allowed border border-gray-600"
+                        can_buy ->
+                          "bg-yellow-500 hover:bg-yellow-400 cursor-pointer text-black shadow-[0_0_15px_rgba(234,179,8,0,4)] hover:scale-105 active:scale-95"
+                        true ->
+                          "bg-gray-800 text-red-400 border border-red-900/50 opacity-80 cursor-not-allowed"
+                      end
+                  }
                 >
-                  <span>Buy</span>
-                  <span class="font-mono text-[10px] opacity-80">
-                    {Number.Delimit.number_to_delimited(cost, precision: 0)} G
-                  </span>
+                  <%= if is_max do %>
+                    <span>🚫</span>
+                    <span>{gettext("Sold Out")}</span>
+                  <% else %>
+                    <span>💰</span>
+                    <span>{format_number(cost, @locale)}</span>
+                  <% end %>
                 </button>
-              <% end %>
-            </div>
-          <% end %>
+              </div>
+            <% end %>
+
+            <%= if Enum.count(@shop_items, fn {_, item} -> item.category == :basic end) == 0 do %>
+              <div class="text-center text-gray-500 py-10">
+                <div class="text-4xl mb-2">🗑️</div>
+                <p>{gettext("No items available in this category.")}</p>
+              </div>
+            <% end %>
+          </div>
+          
+<!-- WEAPON 패널 -->
+          <div id="shop-panel-weapon" class="grid grid-cols-1 gap-2 hidden">
+            <%= for {id, item} <- @shop_items, item.category == :weapon do %>
+              <% level = Map.get(@my_items, id, 0)
+              cost = CursorParty.GameCore.get_item_cost(item.id, level)
+              is_max = cost == :max
+              can_buy = !is_max and @my_gold >= cost %>
+
+              <div class={
+                "relative flex items-center justify-between p-3 rounded-lg border-2 transition-all " <>
+                (if is_max,
+                   do: "bg-gray-800/50 border-gray-600 opacity-70",
+                   else: "bg-black/40 border-white/10 hover:border-white/30")
+              }>
+                <div class="flex items-center gap-3">
+                  <div class="text-3xl">{item.icon}</div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h3 class={
+                        "font-bold " <>
+                          (if is_max, do: "text-gray-400 line-through", else: "text-gray-200")
+                      }>
+                        {Gettext.gettext(CursorPartyWeb.Gettext, item.name)}
+                      </h3>
+                      <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 font-mono">
+                        Lv.{level}
+                      </span>
+                      <%= if is_max do %>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-900 text-red-200 font-bold border border-red-500/50">
+                          MAX
+                        </span>
+                      <% end %>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                      {Gettext.gettext(CursorPartyWeb.Gettext, item.desc)}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  phx-click="buy-item"
+                  phx-value-id={item.id}
+                  disabled={!can_buy}
+                  class={
+                    "px-4 py-2 rounded-lg font-bold text-xs transition-all flex flex-col items-center min-w-[80px] " <>
+                      cond do
+                        is_max ->
+                          "bg-gray-700 text-gray-400 cursor-not-allowed border border-gray-600"
+                        can_buy ->
+                          "bg-yellow-500 hover:bg-yellow-400 cursor-pointer text-black shadow-[0_0_15px_rgba(234,179,8,0,4)] hover:scale-105 active:scale-95"
+                        true ->
+                          "bg-gray-800 text-red-400 border border-red-900/50 opacity-80 cursor-not-allowed"
+                      end
+                  }
+                >
+                  <%= if is_max do %>
+                    <span>🚫</span>
+                    <span>{gettext("Sold Out")}</span>
+                  <% else %>
+                    <span>💰</span>
+                    <span>{format_number(cost, @locale)}</span>
+                  <% end %>
+                </button>
+              </div>
+            <% end %>
+
+            <%= if Enum.count(@shop_items, fn {_, item} -> item.category == :weapon end) == 0 do %>
+              <div class="text-center text-gray-500 py-10">
+                <div class="text-4xl mb-2">🗑️</div>
+                <p>{gettext("No items available in this category.")}</p>
+              </div>
+            <% end %>
+          </div>
+          
+<!-- SKILL 패널 -->
+          <div id="shop-panel-skill" class="grid grid-cols-1 gap-2 hidden">
+            <%= for {id, item} <- @shop_items, item.category == :skill do %>
+              <% level = Map.get(@my_items, id, 0)
+              cost = CursorParty.GameCore.get_item_cost(item.id, level)
+              is_max = cost == :max
+              can_buy = !is_max and @my_gold >= cost %>
+
+              <div class={
+                "relative flex items-center justify-between p-3 rounded-lg border-2 transition-all " <>
+                (if is_max,
+                   do: "bg-gray-800/50 border-gray-600 opacity-70",
+                   else: "bg-black/40 border-white/10 hover:border-white/30")
+              }>
+                <div class="flex items-center gap-3">
+                  <div class="text-3xl">{item.icon}</div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h3 class={
+                        "font-bold " <>
+                          (if is_max, do: "text-gray-400 line-through", else: "text-gray-200")
+                      }>
+                        {Gettext.gettext(CursorPartyWeb.Gettext, item.name)}
+                      </h3>
+                      <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 font-mono">
+                        Lv.{level}
+                      </span>
+                      <%= if is_max do %>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-900 text-red-200 font-bold border border-red-500/50">
+                          MAX
+                        </span>
+                      <% end %>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                      {Gettext.gettext(CursorPartyWeb.Gettext, item.desc)}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  phx-click="buy-item"
+                  phx-value-id={item.id}
+                  disabled={!can_buy}
+                  class={
+                    "px-4 py-2 rounded-lg font-bold text-xs transition-all flex flex-col items-center min-w-[80px] " <>
+                      cond do
+                        is_max ->
+                          "bg-gray-700 text-gray-400 cursor-not-allowed border border-gray-600"
+                        can_buy ->
+                          "bg-yellow-500 hover:bg-yellow-400 cursor-pointer text-black shadow-[0_0_15px_rgba(234,179,8,0,4)] hover:scale-105 active:scale-95"
+                        true ->
+                          "bg-gray-800 text-red-400 border border-red-900/50 opacity-80 cursor-not-allowed"
+                      end
+                  }
+                >
+                  <%= if is_max do %>
+                    <span>🚫</span>
+                    <span>{gettext("Sold Out")}</span>
+                  <% else %>
+                    <span>💰</span>
+                    <span>{format_number(cost, @locale)}</span>
+                  <% end %>
+                </button>
+              </div>
+            <% end %>
+
+            <%= if Enum.count(@shop_items, fn {_, item} -> item.category == :skill end) == 0 do %>
+              <div class="text-center text-gray-500 py-10">
+                <div class="text-4xl mb-2">🗑️</div>
+                <p>{gettext("No items available in this category.")}</p>
+              </div>
+            <% end %>
+          </div>
         </div>
+
         <div class="bg-gray-800/50 px-6 py-3 border-t border-white/5 flex justify-end">
           <button
-            phx-click="close-shop"
+            type="button"
+            phx-click={
+              JS.hide(
+                to: "#shop-modal",
+                transition:
+                  {"ease-in duration-200", "opacity-100 scale-100", "opacity-0 scale-95"}
+              )
+            }
             class="px-5 py-2 cursor-pointer rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold transition-colors"
           >
-            Close
+            {gettext("Close")}
           </button>
         </div>
       </div>
     </div>
-  <% end %>
+  </div>
 
   <%= if @winner do %>
-    <div class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 animate-fade-in pointer-events-auto cursor-wait backdrop-blur-sm">
+    <div
+      id="winner-modal"
+      class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 animate-fade-in pointer-events-auto cursor-wait backdrop-blur-sm"
+    >
       <div class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 animate-bounce mb-6 drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]">
-        BOSS DEFEATED!
+        {gettext("BOSS DEFEATED!")}
       </div>
       <div class="text-3xl text-white font-bold animate-pulse mb-8 flex flex-col items-center gap-2">
-        <span>MVP 👑</span>
+        <span>{gettext("MVP 👑")}</span>
         <span class="text-yellow-400 text-4xl">{@winner}</span>
       </div>
       <div class="flex flex-col items-center gap-2">
-        <div class="text-gray-400 text-sm font-mono tracking-widest uppercase">Next Boss In</div>
+        <div class="text-gray-400 text-sm font-mono tracking-widest uppercase">
+          {gettext("Next Boss In")}
+        </div>
         <div class="text-5xl font-mono font-bold text-white tabular-nums">
           {@winner_countdown}
         </div>
@@ -622,8 +889,56 @@
 
   <%= if @alert_msg do %>
     <div class="absolute top-1/3 left-1/2 transform -translate-x-1/2 bg-red-600/90 text-white px-6 py-4 rounded-xl shadow-2xl animate-bounce z-[60] border border-red-400">
-      <div class="font-bold text-lg mb-1 text-center">🚨 Warning</div>
+      <div class="font-bold text-lg mb-1 text-center">🚨 {gettext("Warning")}</div>
       <div class="text-sm whitespace-pre-wrap text-center">{@alert_msg}</div>
     </div>
   <% end %>
+  <div id="locale-hook" phx-hook="Locale" class="hidden"></div>
 </div>
+
+<%= if @show_transfer_modal do %>
+  <div class="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4">
+    <div class="bg-gray-900 border border-white/20 p-6 rounded-xl w-full max-w-sm text-center relative">
+      <button phx-click="toggle-transfer" class="absolute top-2 right-4 text-gray-400">✕</button>
+
+      <h3 class="text-xl font-bold text-white mb-4">{gettext("Account Sync")}</h3>
+
+      <div class="mb-6 border-b border-white/10 pb-4">
+        <p class="text-xs text-gray-400 mb-2">{gettext("To play on another device:")}</p>
+        <button
+          phx-click="generate-code"
+          class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold text-sm"
+        >
+          {gettext("Get Transfer Code")}
+        </button>
+        <%= if @transfer_code do %>
+          <div class="mt-2 text-3xl font-mono text-yellow-400 font-black tracking-widest bg-black/50 p-2 rounded">
+            {@transfer_code}
+          </div>
+          <p class="text-[10px] text-red-400 mt-1">{gettext("Valid for 5 minutes")}</p>
+        <% end %>
+      </div>
+
+      <div>
+        <p class="text-xs text-gray-400 mb-2">{gettext("Enter code from old device:")}</p>
+        <form phx-submit="submit-code" class="flex gap-2">
+          <input
+            type="text"
+            name="code"
+            placeholder="123456"
+            maxlength="6"
+            class="flex-1 bg-black/50 border border-white/20 rounded px-3 py-2 text-center text-white font-mono tracking-widest focus:outline-none focus:border-yellow-500"
+          />
+          <button
+            type="submit"
+            class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold text-sm"
+          >
+            {gettext("Load")}
+          </button>
+        </form>
+      </div>
+
+      <div id="account-sync-hook" phx-hook="AccountSync"></div>
+    </div>
+  </div>
+<% end %>

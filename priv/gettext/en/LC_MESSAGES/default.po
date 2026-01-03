@@ -1,0 +1,363 @@
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: lib/cursor_party_web/live/page_live.html.heex:385
+#, elixir-autogen, elixir-format
+msgid "-1 HP"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:389
+#, elixir-autogen, elixir-format
+msgid "2x DMG & Gold"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:676
+#, elixir-autogen, elixir-format
+msgid "Account Sync"
+msgstr ""
+
+#: lib/cursor_party_web/components/core_components.ex:368
+#, elixir-autogen, elixir-format
+msgid "Actions"
+msgstr ""
+
+#: lib/cursor_party_web/components/layouts.ex:99
+#: lib/cursor_party_web/components/layouts.ex:111
+#, elixir-autogen, elixir-format
+msgid "Attempting to reconnect"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:646
+#, elixir-autogen, elixir-format
+msgid "BOSS DEFEATED!"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:622
+#, elixir-autogen, elixir-format
+msgid "Buy"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:490
+#, elixir-autogen, elixir-format
+msgid "CURSOR PARTY"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:400
+#, elixir-autogen, elixir-format
+msgid "Change Language"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:157
+#: lib/cursor_party_web/live/page_live.html.heex:179
+#, elixir-autogen, elixir-format
+msgid "Chat"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:522
+#, elixir-autogen, elixir-format
+msgid "China"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:385
+#, elixir-autogen, elixir-format
+msgid "Click BOSS:"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:636
+#, elixir-autogen, elixir-format
+msgid "Close"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:388
+#, elixir-autogen, elixir-format
+msgid "Critical:"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:295
+#, elixir-autogen, elixir-format
+msgid "Data Sync"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:475
+#, elixir-autogen, elixir-format
+msgid "Database Update"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:695
+#, elixir-autogen, elixir-format
+msgid "Enter code from old device:"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:503
+#, elixir-autogen, elixir-format
+msgid "Enter your name"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:523
+#, elixir-autogen, elixir-format
+msgid "Europe"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:531
+#, elixir-autogen, elixir-format
+msgid "GAME START"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:684
+#, elixir-autogen, elixir-format
+msgid "Get Transfer Code"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:263
+#, elixir-autogen, elixir-format
+msgid "Gold"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:73
+#, elixir-autogen, elixir-format
+msgid "Guest"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:380
+#, elixir-autogen, elixir-format
+msgid "How to Play"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:279
+#, elixir-autogen, elixir-format
+msgid "ITEM SHOP"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:550
+#, elixir-autogen, elixir-format
+msgid "Item Shop"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:283
+#, elixir-autogen, elixir-format
+msgid "Items"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:521
+#, elixir-autogen, elixir-format
+msgid "Japan"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:493
+#, elixir-autogen, elixir-format
+msgid "Join the massive multiplayer boss raid!"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:374
+#, elixir-autogen, elixir-format
+msgid "Join to chat"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:519
+#, elixir-autogen, elixir-format
+msgid "Korea"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:310
+#, elixir-autogen, elixir-format
+msgid "LEADERBOARD"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:595
+#, elixir-autogen, elixir-format
+msgid "LEARNED"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:220
+#, elixir-autogen, elixir-format
+msgid "Leaderboard"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:708
+#, elixir-autogen, elixir-format
+msgid "Load"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:302
+#, elixir-autogen, elixir-format
+msgid "Logout"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:30
+#: lib/cursor_party_web/live/page_live.html.heex:270
+#: lib/cursor_party_web/live/page_live.html.heex:283
+#: lib/cursor_party_web/live/page_live.html.heex:604
+#, elixir-autogen, elixir-format
+msgid "Lv."
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:649
+#, elixir-autogen, elixir-format
+msgid "MVP 👑"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:475
+#, elixir-autogen, elixir-format
+msgid "Mobile Update"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:383
+#, elixir-autogen, elixir-format
+msgid "Move cursor to interact"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:654
+#, elixir-autogen, elixir-format
+msgid "Next Boss In"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:498
+#, elixir-autogen, elixir-format
+msgid "Nickname"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:331
+#, elixir-autogen, elixir-format
+msgid "No players yet..."
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:269
+#: lib/cursor_party_web/live/page_live.html.heex:283
+#, elixir-autogen, elixir-format
+msgid "Power"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:478
+#, elixir-autogen, elixir-format
+msgid "Powered by"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:172
+#, elixir-autogen, elixir-format
+msgid "Rank"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:513
+#, elixir-autogen, elixir-format
+msgid "Region"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:599
+#, elixir-autogen, elixir-format
+msgid "SKILL"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:613
+#, elixir-autogen, elixir-format
+msgid "SOLD OUT"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:353
+#, elixir-autogen, elixir-format
+msgid "Say hello! 👋"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:164
+#, elixir-autogen, elixir-format
+msgid "Shop"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:574
+#, elixir-autogen, elixir-format
+msgid "Skills"
+msgstr ""
+
+#: lib/cursor_party_web/components/layouts.ex:106
+#, elixir-autogen, elixir-format
+msgid "Something went wrong!"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:679
+#, elixir-autogen, elixir-format
+msgid "To play on another device:"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:410
+#, elixir-autogen, elixir-format
+msgid "Toggle Sound"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:257
+#, elixir-autogen, elixir-format
+msgid "Total Damage"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:367
+#, elixir-autogen, elixir-format
+msgid "Type a message..."
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:209
+#, elixir-autogen, elixir-format
+msgid "Type here..."
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:520
+#, elixir-autogen, elixir-format
+msgid "USA"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:551
+#, elixir-autogen, elixir-format
+msgid "Upgrade your gear & skills!"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:391
+#, elixir-autogen, elixir-format
+msgid "Use Gold to upgrade Power!"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:690
+#, elixir-autogen, elixir-format
+msgid "Valid for 5 minutes"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:444
+#, elixir-autogen, elixir-format
+msgid "View Source"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:459
+#, elixir-autogen, elixir-format
+msgid "Visit Blog"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:665
+#, elixir-autogen, elixir-format
+msgid "Warning"
+msgstr ""
+
+#: lib/cursor_party_web/components/layouts.ex:94
+#, elixir-autogen, elixir-format
+msgid "We can't find the internet"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:567
+#, elixir-autogen, elixir-format
+msgid "Weapons"
+msgstr ""
+
+#: lib/cursor_party_web/live/page_live.html.heex:524
+#, elixir-autogen, elixir-format
+msgid "World"
+msgstr ""
+
+#: lib/cursor_party_web/components/core_components.ex:74
+#, elixir-autogen, elixir-format
+msgid "close"
+msgstr ""

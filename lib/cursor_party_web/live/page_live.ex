@@ -9,11 +9,17 @@ defmodule CursorPartyWeb.PageLive do
   # ============================================================================
   # 1. Mount (초기화)
   # ============================================================================
-  # ============================================================================
-  # 1. Mount (초기화)
-  # ============================================================================
   def mount(_params, session, socket) do
     user_id = session["user_uuid"] || "guest_#{:rand.uniform(10000)}"
+
+    locale =
+      if connected?(socket) do
+        get_connect_params(socket)["locale"] || "en"
+      else
+        "en"
+      end
+
+    Gettext.put_locale(CursorPartyWeb.Gettext, locale)
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(CursorParty.PubSub, @topic)
@@ -46,6 +52,8 @@ defmodule CursorPartyWeb.PageLive do
         do: GameServer.get_state(),
         else: %{hp: 2000, boss_level: 1, winner: nil, chat_history: []}
 
+    shop_items = CursorParty.GameCore.get_shop_items()
+
     initial_assigns = %{
       cursors: [],
       leaderboard: [],
@@ -69,12 +77,19 @@ defmodule CursorPartyWeb.PageLive do
       my_items: my_items,
       my_skill_cd: my_skill_cd,
       show_shop: false,
-      active_shop_tab: :weapon,
+      active_shop_tab: :basic,
+      shop_items: shop_items,
       shop_catalog: shop_catalog,
-      mobile_tab: :chat
+      mobile_tab: :chat,
+      show_transfer_modal: false,
+      transfer_code: nil,
+      locale: locale
     }
 
-    socket = assign(socket, initial_assigns)
+    socket =
+      socket
+      |> assign(initial_assigns)
+      |> assign_shop_items_by_tab()
 
     # [수정] 자동 로그인 처리 (Map.get 사용으로 안전하게 변경)
     socket =
@@ -126,6 +141,25 @@ defmodule CursorPartyWeb.PageLive do
   # ============================================================================
   # 2. Handle Events
   # ============================================================================
+
+  # 코드 생성 요청
+  def handle_event("generate-code", _params, socket) do
+    {:ok, code} = GameServer.create_transfer_code(socket.assigns.my_id)
+    {:noreply, assign(socket, transfer_code: code, show_transfer_modal: true)}
+  end
+
+  # 코드 입력 (연동 시도)
+  def handle_event("submit-code", %{"code" => code}, socket) do
+    case GameServer.redeem_transfer_code(code) do
+      {:ok, target_uuid} ->
+        # [핵심] 클라이언트에게 UUID 변경 명령 전송
+        socket = push_event(socket, "update_uuid", %{new_uuid: target_uuid})
+        {:noreply, socket}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Invalid or expired code.")}
+    end
+  end
 
   # 2-1. 게임 입장
   def handle_event("join", %{"name" => name, "country" => country}, socket) do
@@ -197,6 +231,35 @@ defmodule CursorPartyWeb.PageLive do
      )}
   end
 
+  # 1. 모달 열기/닫기 버튼 클릭 시
+  def handle_event("toggle-transfer", _params, socket) do
+    # 현재 상태의 반대로 설정 (열려있으면 닫고, 닫혀있으면 염)
+    # 닫을 때는 기존에 발급받은 코드도 초기화(nil) 해주는 것이 깔끔함
+    new_state = !socket.assigns.show_transfer_modal
+    {:noreply, assign(socket, show_transfer_modal: new_state, transfer_code: nil)}
+  end
+
+  # 2. 'Get Transfer Code' 버튼 클릭 시 (코드 발급)
+  def handle_event("generate-code", _params, socket) do
+    {:ok, code} = GameServer.create_transfer_code(socket.assigns.my_id)
+    # 코드를 발급받으면 화면에 표시
+    {:noreply, assign(socket, transfer_code: code)}
+  end
+
+  # 3. 'Load' 버튼 클릭 시 (코드 입력)
+  def handle_event("submit-code", %{"code" => code}, socket) do
+    case GameServer.redeem_transfer_code(code) do
+      {:ok, target_uuid} ->
+        # 성공 시 클라이언트(JS)에게 UUID 변경 명령 전송
+        socket = push_event(socket, "update_uuid", %{new_uuid: target_uuid})
+        {:noreply, socket}
+
+      {:error, _} ->
+        # 실패 시 에러 메시지 표시
+        {:noreply, put_flash(socket, :error, "Invalid or expired code.")}
+    end
+  end
+
   # 2-3. 커서 이동
   def handle_event("cursor-move", %{"x" => x, "y" => y}, socket) do
     if socket.assigns.my_id do
@@ -210,19 +273,27 @@ defmodule CursorPartyWeb.PageLive do
 
   # 2-4. 보스 공격
   def handle_event("hit-boss", _params, socket) do
+    # 1. 밴/보스생존 여부 체크
     is_banned =
       if socket.assigns.banned_until,
         do: DateTime.diff(socket.assigns.banned_until, DateTime.utc_now()) > 0,
         else: false
 
     if socket.assigns.joined? and not is_banned and is_nil(socket.assigns.winner_countdown) do
-      case GameServer.hit(socket.assigns.my_id, socket.assigns.my_name) do
+      # 2. GameServer에 타격 요청
+      case CursorParty.GameServer.hit(socket.assigns.my_id, socket.assigns.my_name) do
+        # 👇 [핵심] 서버가 {:ok, ...}를 주면 여기서 받습니다.
         {:ok, damage, is_crit} ->
           socket = update(socket, :my_damage, &(&1 + damage))
           socket = update(socket, :my_gold, &(&1 + damage))
+
+          # ✨ [중요] 이 부분이 있어야 이펙트가 나옵니다! ✨
+          # 자바스크립트로 "damage-effect"라는 이벤트를 보냅니다.
           socket = push_event(socket, "damage-effect", %{damage: damage, is_crit: is_crit})
+
           {:noreply, socket}
 
+        # 쿨타임이나 에러인 경우 무시
         _ ->
           {:noreply, socket}
       end
@@ -235,10 +306,6 @@ defmodule CursorPartyWeb.PageLive do
   def handle_event("toggle-shop", _params, socket) do
     socket = push_event(socket, "play-shop-sound", %{})
     {:noreply, assign(socket, show_shop: !socket.assigns.show_shop)}
-  end
-
-  def handle_event("close-shop", _params, socket) do
-    {:noreply, assign(socket, show_shop: false)}
   end
 
   # [신규] 상점 탭 변경
@@ -307,6 +374,63 @@ defmodule CursorPartyWeb.PageLive do
     end
 
     {:noreply, socket}
+  end
+
+  def handle_event("set-mobile-tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, mobile_tab: String.to_existing_atom(tab))}
+  end
+
+  def handle_event("toggle-lang", _params, socket) do
+    new_locale = if socket.assigns.locale == "en", do: "ko", else: "en"
+
+    Gettext.put_locale(CursorPartyWeb.Gettext, new_locale)
+
+    socket = push_event(socket, "save_locale", %{locale: new_locale})
+
+    {:noreply, assign(socket, locale: new_locale)}
+  end
+
+  def handle_event("use-thunder-skill", _params, socket) do
+    # 보스가 죽었으면(카운트다운 중이면) 스킬 발동 안 함
+    if is_nil(socket.assigns.winner_countdown) do
+      has_thunder = Map.get(socket.assigns.my_items, :skill_thunder, 0) > 0
+
+      if has_thunder do
+        item_info = CursorParty.GameCore.get_item(:skill_thunder)
+
+        skill_name = Gettext.gettext(CursorPartyWeb.Gettext, item_info.name)
+
+        attacker_label =
+          if socket.assigns.locale == "ko" do
+            "#{socket.assigns.my_name}의 #{skill_name}"
+          else
+            "#{socket.assigns.my_name}'s #{skill_name}"
+          end
+
+        case CursorParty.GameServer.hit(socket.assigns.my_id, attacker_label) do
+          {:ok, _damage, _is_crit} ->
+            CursorPartyWeb.Endpoint.broadcast("game:events", "global-effect", %{type: "thunder"})
+            {:noreply, socket}
+
+          _ ->
+            {:noreply, socket}
+        end
+
+        case CursorParty.GameServer.hit(socket.assigns.my_id, "⚡ Thunder") do
+          {:ok, _damage, _is_crit} ->
+            # 번개는 숫자 대신 화면 번쩍임 효과만
+            CursorPartyWeb.Endpoint.broadcast("game:events", "global-effect", %{type: "thunder"})
+            {:noreply, socket}
+
+          _ ->
+            {:noreply, socket}
+        end
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   # ============================================================================
@@ -411,13 +535,36 @@ defmodule CursorPartyWeb.PageLive do
     if socket.assigns[:my_id], do: Presence.untrack(self(), @topic, socket.assigns.my_id)
   end
 
-  def handle_event("set-mobile-tab", %{"tab" => tab}, socket) do
-    {:noreply, assign(socket, mobile_tab: String.to_existing_atom(tab))}
-  end
-
   # ============================================================================
   # Helpers
   # ============================================================================
+
+  defp switch_shop_tab(tab_sel, panel_sel) do
+    %Phoenix.LiveView.JS{}
+    # 탭 스타일 초기화
+    |> Phoenix.LiveView.JS.remove_class(
+      "bg-white/10 text-white border-b-2 border-yellow-500",
+      to: "#shop-tabs .shop-tab"
+    )
+    |> Phoenix.LiveView.JS.add_class(
+      "bg-white/10 text-white border-b-2 border-yellow-500",
+      to: tab_sel
+    )
+    # 모든 패널 숨기기
+    |> Phoenix.LiveView.JS.add_class("hidden", to: "#shop-panel-basic")
+    |> Phoenix.LiveView.JS.add_class("hidden", to: "#shop-panel-weapon")
+    |> Phoenix.LiveView.JS.add_class("hidden", to: "#shop-panel-skill")
+    # 선택된 패널만 보이기
+    |> Phoenix.LiveView.JS.remove_class("hidden", to: panel_sel)
+  end
+
+  defp assign_shop_items_by_tab(socket) do
+    items_by_tab =
+      socket.assigns.shop_items
+      |> Enum.group_by(fn {_, item} -> item.category end)
+
+    assign(socket, :shop_items_by_tab, items_by_tab)
+  end
 
   defp list_present_cursors do
     Presence.list(@topic)
@@ -488,62 +635,150 @@ defmodule CursorPartyWeb.PageLive do
   end
 
   def get_boss_style(level) do
+    info = CursorParty.GameCore.get_boss_info(level)
+
+    # 1. 기본 이름 번역
+    translated_name = Gettext.gettext(CursorPartyWeb.Gettext, info.name)
+
+    # 2. 칭호(Suffix) 번역 (빈 문자열이 아닐 때만)
+    translated_suffix =
+      if info.suffix != "" do
+        Gettext.gettext(CursorPartyWeb.Gettext, info.suffix)
+      else
+        ""
+      end
+
+    # 색상 로직 (기존 유지)
+    color_cycle = rem(div(level - 1, 10), 8)
+
+    {color, border} =
+      case color_cycle do
+        0 -> {"from-green-600 to-emerald-800", "border-green-400"}
+        1 -> {"from-blue-600 to-cyan-800", "border-cyan-400"}
+        2 -> {"from-purple-600 to-indigo-800", "border-purple-400"}
+        3 -> {"from-yellow-600 via-yellow-800 to-yellow-600", "border-yellow-400"}
+        4 -> {"from-red-600 to-red-800", "border-red-400"}
+        5 -> {"from-pink-600 to-rose-800", "border-pink-400"}
+        6 -> {"from-gray-800 via-black to-gray-900", "border-gray-500"}
+        7 -> {"from-gray-900 via-purple-900 to-black", "border-purple-500 animate-pulse"}
+        _ -> {"from-gray-900 to-black", "border-white"}
+      end
+
+    is_major_boss = rem(level, 100) == 0
+
+    final_border =
+      if is_major_boss,
+        do: "border-8 #{border} shadow-[0_0_100px_rgba(255,255,255,0.5)]",
+        else: border
+
+    %{
+      color: color,
+      border: final_border,
+      emoji: info.emoji,
+      # 최종 이름: "개미" + " (신)"
+      name: translated_name <> translated_suffix
+    }
+  end
+
+  def format_number(number, locale) do
+    if locale == "ko" do
+      # 한국어: 만, 억, 조, 경
+      format_korean_number(number)
+    else
+      # 영어: K, M, B, T (Short Scale)
+      format_english_number(number)
+    end
+  end
+
+  # 한국어 포맷터 (기존 로직)
+  # [수정] 한국어 포맷터 (경 -> 해, 자, 양, 구, 간, 정, 재, 극)
+  defp format_korean_number(number) do
     cond do
-      level >= 30 ->
-        %{
-          color: "from-gray-900 via-purple-900 to-black",
-          border: "border-purple-500",
-          emoji: "👑",
-          name: "GOD KING - Phase #{level - 29}"
-        }
+      number < 10_000 ->
+        Number.Delimit.number_to_delimited(number, precision: 0)
 
-      level >= 25 ->
-        %{
-          color: "from-red-900 via-black to-red-900",
-          border: "border-red-600",
-          emoji: "👿",
-          name: "DEMON LORD"
-        }
+      number < 100_000_000 ->
+        "#{Number.Delimit.number_to_delimited(number / 10_000, precision: 1)}만"
 
-      level >= 20 ->
-        %{
-          color: "from-yellow-600 via-yellow-800 to-yellow-600",
-          border: "border-yellow-400",
-          emoji: "🐉",
-          name: "GOLD DRAGON"
-        }
+      number < 1_000_000_000_000 ->
+        "#{Number.Delimit.number_to_delimited(number / 100_000_000, precision: 2)}억"
 
-      level >= 15 ->
-        %{
-          color: "from-purple-600 to-indigo-800",
-          border: "border-purple-400",
-          emoji: "👻",
-          name: "ELDER GHOST"
-        }
+      number < 1.0e16 ->
+        "#{Number.Delimit.number_to_delimited(number / 1_000_000_000_000, precision: 2)}조"
 
-      level >= 10 ->
-        %{
-          color: "from-blue-600 to-cyan-800",
-          border: "border-cyan-400",
-          emoji: "🐺",
-          name: "DIRE WOLF"
-        }
+      number < 1.0e20 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e16, precision: 2)}경"
 
-      level >= 5 ->
-        %{
-          color: "from-red-600 to-red-800",
-          border: "border-red-400/50",
-          emoji: "👹",
-          name: "ORC WARRIOR"
-        }
+      number < 1.0e24 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e20, precision: 2)}해"
+
+      number < 1.0e28 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e24, precision: 2)}자"
+
+      number < 1.0e32 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e28, precision: 2)}양"
+
+      number < 1.0e36 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e32, precision: 2)}구"
+
+      number < 1.0e40 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e36, precision: 2)}간"
+
+      number < 1.0e44 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e40, precision: 2)}정"
+
+      number < 1.0e48 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e44, precision: 2)}재"
 
       true ->
-        %{
-          color: "from-green-600 to-emerald-800",
-          border: "border-green-400",
-          emoji: "🦠",
-          name: "SLIME BOSS"
-        }
+        "#{Number.Delimit.number_to_delimited(number / 1.0e48, precision: 2)}극"
+    end
+  end
+
+  # [수정] 영어 포맷터 (Qa -> Qi, Sx, Sp, Oc, No, Dc, Ud, Dd)
+  defp format_english_number(number) do
+    cond do
+      number < 1_000 ->
+        Number.Delimit.number_to_delimited(number, precision: 0)
+
+      number < 1_000_000 ->
+        "#{Number.Delimit.number_to_delimited(number / 1_000, precision: 1)}K"
+
+      number < 1_000_000_000 ->
+        "#{Number.Delimit.number_to_delimited(number / 1_000_000, precision: 2)}M"
+
+      number < 1_000_000_000_000 ->
+        "#{Number.Delimit.number_to_delimited(number / 1_000_000_000, precision: 2)}B"
+
+      number < 1.0e15 ->
+        "#{Number.Delimit.number_to_delimited(number / 1_000_000_000_000, precision: 3)}T"
+
+      number < 1.0e18 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e15, precision: 3)}Qa"
+
+      number < 1.0e21 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e18, precision: 3)}Qi"
+
+      number < 1.0e24 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e21, precision: 3)}Sx"
+
+      number < 1.0e27 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e24, precision: 3)}Sp"
+
+      number < 1.0e30 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e27, precision: 3)}Oc"
+
+      number < 1.0e33 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e30, precision: 3)}No"
+
+      number < 1.0e36 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e33, precision: 3)}Dc"
+
+      number < 1.0e39 ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e36, precision: 3)}Ud"
+
+      true ->
+        "#{Number.Delimit.number_to_delimited(number / 1.0e39, precision: 3)}Dd"
     end
   end
 end
