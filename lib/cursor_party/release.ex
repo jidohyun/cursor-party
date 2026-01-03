@@ -8,26 +8,48 @@ defmodule CursorParty.Release do
   import Ecto.Query
 
   def reset_db do
-    # 1. 앱 설정 로드
     Application.load(:cursor_party)
 
-    # 2. [핵심 수정] DB 연결에 필요한 필수 앱들을 수동으로 시작
-    # Koyeb DB는 SSL 연결이 필수이므로 :ssl 앱을 꼭 켜야 합니다.
     IO.puts("🔌 필수 앱 시작 중...")
     {:ok, _} = Application.ensure_all_started(:ssl)
     {:ok, _} = Application.ensure_all_started(:postgrex)
     {:ok, _} = Application.ensure_all_started(:ecto_sql)
-
-    # 3. 이제 Repo 시작 (이제 에러가 안 날 겁니다)
     {:ok, _} = Repo.start_link()
 
     IO.puts("⚠️  [Koyeb] 데이터베이스 초기화를 시작합니다...")
 
-    # 4. 데이터 삭제
-    Repo.delete_all(Profile)
-    Repo.delete_all(GameState)
+    # 아래에서 실제 초기화 로직만 정리
+    wipe_all_data()
+    seed_initial_data()
 
-    # 5. 초기 데이터 주입
+    IO.puts("✅  [Koyeb] DB 초기화 및 시드 데이터 주입 완료!")
+
+    :init.stop()
+  end
+
+  defp all_schemas do
+    [
+      CursorParty.Schema.Profile,
+      CursorParty.Schema.GameState
+      # 나중에 스키마 늘어나면 여기에만 추가
+      # CursorParty.Schema.SomeLog,
+      # CursorParty.Schema.Item, ...
+    ]
+  end
+
+  defp wipe_all_data do
+    # FK 제약이 있으면 역순으로 지우는 게 안전
+    IO.puts("🧨 모든 스키마 데이터 삭제 중...")
+
+    Enum.each(all_schemas(), fn schema ->
+      {count, _} = Repo.delete_all(schema)
+      IO.puts(" - #{inspect(schema)}: #{count} rows deleted")
+    end)
+  end
+
+  defp seed_initial_data do
+    IO.puts("🌱 초기 데이터 삽입 중...")
+
     Repo.insert!(%GameState{
       key: "boss",
       value: %{"hp" => 2000, "level" => 1, "winner" => nil}
@@ -42,10 +64,5 @@ defmodule CursorParty.Release do
       key: "chat",
       value: %{"history" => []}
     })
-
-    IO.puts("✅  [Koyeb] DB 초기화 및 시드 데이터 주입 완료!")
-
-    # 작업이 끝났으니 프로세스 종료 (깔끔하게)
-    :init.stop()
   end
 end
