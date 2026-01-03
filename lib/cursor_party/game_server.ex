@@ -94,6 +94,9 @@ defmodule CursorParty.GameServer do
   def send_chat(user_id, name, message),
     do: GenServer.cast(__MODULE__, {:new_chat, user_id, name, message})
 
+  def get_admin_stats, do: GenServer.call(__MODULE__, :get_admin_stats)
+  def track_visit(user_id), do: GenServer.cast(__MODULE__, {:track_visit, user_id})
+
   # ============================================================================
   # Server Callbacks
   # ============================================================================
@@ -110,6 +113,7 @@ defmodule CursorParty.GameServer do
     winner = lookup_dets(:winner, nil)
     profiles = lookup_dets(:profiles, %{})
     chat_history = lookup_dets(:chat_history, [])
+    daily_stats = lookup_dets(:daily_stats, %{})
 
     # Start auto-attack loop (1 second interval) for skills and future pets
     :timer.send_interval(1000, :tick_auto_attack)
@@ -122,7 +126,8 @@ defmodule CursorParty.GameServer do
        last_hits: %{},
        banned_users: %{},
        profiles: profiles,
-       chat_history: chat_history
+       chat_history: chat_history,
+       daily_stats: daily_stats
      }}
   end
 
@@ -200,6 +205,45 @@ defmodule CursorParty.GameServer do
     else
       {:reply, {:error, :invalid_item}, state}
     end
+  end
+
+  @impl true
+  def handle_call(:get_admin_stats, _from, state) do
+    daily_counts =
+      state.daily_stats
+      |> Enum.map(fn {date, user_set} -> {date, MapSet.size(user_set)} end)
+      |> Enum.sort_by(fn {date, _} -> date end, :desc)
+      |> Enum.take(7)
+
+    stats = %{
+      hp: state.hp,
+      level: state.boss_level,
+      total_profiles: map_size(state.profiles),
+      banned_count: map_size(state.banned_users),
+      daily_counts: daily_counts
+    }
+
+    {:reply, stats, state}
+  end
+
+  @impl true
+  def handle_cast({:track_visit, user_id}, state) do
+    # "2024-05-20" 형식
+    today = Date.utc_today() |> Date.to_string()
+
+    # 오늘의 방문자 Set 가져오기 (없으면 빈 Set)
+    current_set = Map.get(state.daily_stats, today, MapSet.new())
+
+    # 유저 ID 추가
+    new_set = MapSet.put(current_set, user_id)
+
+    # State 업데이트
+    new_daily_stats = Map.put(state.daily_stats, today, new_set)
+
+    # DB 저장 (Dets는 전체 맵을 덮어씀)
+    :dets.insert(@db_filename, {:daily_stats, new_daily_stats})
+
+    {:noreply, %{state | daily_stats: new_daily_stats}}
   end
 
   # [Hit Logic]

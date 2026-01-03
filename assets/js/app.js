@@ -380,6 +380,22 @@ let Hooks = {};
 
 Hooks.CursorTrack = {
   mounted() {
+    // 1. 단순화된 기기 정보 탐지 (Mobile vs Desktop)
+    const getDeviceInfo = () => {
+      const ua = navigator.userAgent;
+      // 모바일 관련 키워드가 포함되어 있는지 정규식으로 검사
+      const isMobile =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(
+          ua,
+        );
+
+      return { deviceType: isMobile ? "Mobile" : "Desktop" };
+    };
+
+    // 2. 서버로 전송
+    this.pushEvent("device-info", getDeviceInfo());
+
+    // 3. 커서 이동 로직 (기존 유지)
     let lastSent = 0;
     const throttleMs = 30;
     const handleMove = (x, y) => {
@@ -391,11 +407,12 @@ Hooks.CursorTrack = {
         lastSent = now;
       }
     };
+
     this.el.addEventListener("mousemove", (e) =>
       handleMove(e.clientX, e.clientY),
     );
     this.el.addEventListener("touchmove", (e) => {
-      e.preventDefault();
+      // e.preventDefault(); // 스크롤 허용하려면 주석 처리
       const touch = e.touches[0];
       handleMove(touch.clientX, touch.clientY);
     });

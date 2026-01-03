@@ -17,6 +17,7 @@ defmodule CursorPartyWeb.PageLive do
       Phoenix.PubSub.subscribe(CursorParty.PubSub, @boss_topic)
       # 1초마다 틱 (골드 갱신, 리더보드, 자동사냥 동기화)
       :timer.send_interval(1000, self(), :tick)
+      GameServer.track_visit(user_id)
     end
 
     # DB 로드
@@ -310,6 +311,16 @@ defmodule CursorPartyWeb.PageLive do
     end
   end
 
+  def handle_event("device-info", %{"deviceType" => device_type}, socket) do
+    if socket.assigns.my_id do
+      Presence.update(self(), @topic, socket.assigns.my_id, fn meta ->
+        Map.put(meta, :device, device_type)
+      end)
+    end
+
+    {:noreply, socket}
+  end
+
   # ============================================================================
   # 3. Handle Info
   # ============================================================================
@@ -449,6 +460,18 @@ defmodule CursorPartyWeb.PageLive do
     end)
     |> Enum.filter(& &1.joined?)
     |> Enum.sort_by(& &1.total_damage, :desc)
+  end
+
+  defp get_device_icon(meta) do
+    if meta[:device] == "Mobile" do
+      "📱"
+    else
+      "💻"
+    end
+  end
+
+  defp get_device_text(meta) do
+    meta[:device] || "Desktop"
   end
 
   def get_boss_style(level) do

@@ -18,7 +18,8 @@ defmodule CursorPartyWeb.Router do
   scope "/", CursorPartyWeb do
     pipe_through :browser
 
-    live "/", PageLive
+    live "/", PageLive, :home
+    live "/admin", AdminLive, :index
   end
 
   # Other scopes may use custom stacks.

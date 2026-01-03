@@ -238,15 +238,20 @@
           <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.85a.5.5 0 0 0-.85.35Z" />
         </svg>
 
-        <%= if cursor.name do %>
-          <div
-            class="mt-1 px-2 py-0.5 rounded text-[10px] text-white font-bold shadow-sm whitespace-nowrap flex items-center gap-1 border border-white/20"
-            style={"background-color: #{cursor.color}cc;"}
-          >
-            <span>{cursor.country}</span>
-            <span>{cursor.name}</span>
-          </div>
-        <% end %>
+        <div
+          class="mt-1 px-2 py-0.5 rounded text-[10px] text-white font-bold shadow-sm whitespace-nowrap flex items-center gap-1.5 border border-white/20 backdrop-blur-sm"
+          style={"background-color: #{cursor.color}cc;"}
+        >
+          <span>{cursor[:flag] || cursor[:country] || "🌍"}</span>
+
+          <span>{cursor[:name] || "Guest"}</span>
+
+          <span class="opacity-50">|</span>
+
+          <span title={get_device_text(cursor)}>
+            {get_device_icon(cursor)}
+          </span>
+        </div>
       </div>
     <% end %>
   <% end %>
