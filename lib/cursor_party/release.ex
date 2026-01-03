@@ -1,16 +1,8 @@
 defmodule CursorParty.Release do
-  @moduledoc """
-  DB hard reset for Koyeb.
-
-  Run:
-    /app/bin/cursor_party eval "CursorParty.Release.reset_db()"
-  """
-
   alias CursorParty.Repo
   alias CursorParty.Schema.{Profile, GameState}
   import Ecto.Query
 
-  # 1) Public entry
   def reset_db do
     Application.load(:cursor_party)
 
@@ -26,23 +18,21 @@ defmodule CursorParty.Release do
     IO.puts("==> Seeding initial data...")
     seed_initial_data()
 
+    IO.puts("==> Resetting GameServer state...")
+    reset_gameserver_state()
+
     IO.puts("==> Reset done. Stopping VM.")
     :init.stop()
   end
 
-  # 2) Schemas to clear (add here if you create new ones)
   defp all_schemas do
     [
-      Profile,
-      GameState
-      # Example:
-      # CursorParty.Schema.Item,
-      # CursorParty.Schema.BossLog
+      CursorParty.Schema.Profile,
+      CursorParty.Schema.GameState
     ]
   end
 
   defp wipe_all_data do
-    # Delete in order; if you add FKs, put child tables first.
     Enum.each(all_schemas(), fn schema ->
       {count, _} = Repo.delete_all(schema)
       IO.puts("  - #{inspect(schema)}: #{count} rows deleted")
@@ -50,22 +40,35 @@ defmodule CursorParty.Release do
   end
 
   defp seed_initial_data do
-    # Boss state
     Repo.insert!(%GameState{
       key: "boss",
       value: %{"hp" => 2000, "level" => 1, "winner" => nil}
     })
 
-    # Daily stats
     Repo.insert!(%GameState{
       key: "daily_stats",
       value: %{}
     })
 
-    # Chat history
     Repo.insert!(%GameState{
       key: "chat",
       value: %{"history" => []}
     })
+  end
+
+  defp reset_gameserver_state do
+    case Process.whereis(CursorParty.GameServer) do
+      nil ->
+        IO.puts("  - GameServer not running (skipping).")
+
+      pid ->
+        case GenServer.call(pid, :reset_state) do
+          :ok ->
+            IO.puts("  - GameServer state reset to level 1.")
+
+          other ->
+            IO.puts("  - GameServer reset returned: #{inspect(other)}")
+        end
+    end
   end
 end
