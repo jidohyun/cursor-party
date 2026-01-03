@@ -1,63 +1,241 @@
 <div
   id="game-container"
   phx-hook="CursorTrack"
-  class="relative w-screen h-screen overflow-hidden bg-gray-900 select-none font-sans"
+  class="relative w-screen h-screen overflow-hidden bg-gray-900 select-none font-sans touch-none"
 >
   <div class="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-800 z-0"></div>
 
-  <%= if !@joined? do %>
-    <div class="absolute inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-500">
-      <div class="bg-white/10 p-8 rounded-2xl border border-white/20 shadow-2xl max-w-md w-full text-center relative overflow-hidden">
-        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
+  <div
+    id="boss-area"
+    class="absolute inset-0 overflow-hidden"
+    phx-window-mousemove="cursor-move"
+    phx-window-touchmove="cursor-move"
+  >
+    <% boss_style = get_boss_style(@boss_level) %>
+
+    <div
+      id="boss-target"
+      phx-hook="BossEffect"
+      phx-click="hit-boss"
+      class={"absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
+                   cursor-pointer transition-transform active:scale-95 boss-hit-anim select-none z-10
+                   w-48 h-48 lg:w-64 lg:h-64 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(0,0,0,0.5)]
+                   bg-gradient-to-br #{boss_style.color} border-4 #{boss_style.border}"}
+    >
+      <div class="text-6xl lg:text-8xl animate-bounce z-10 filter drop-shadow-lg">
+        {if boss_style.emoji == "slime", do: "👹", else: boss_style.emoji}
+      </div>
+
+      <div class="absolute -bottom-8 lg:-bottom-10 text-white font-bold text-sm lg:text-lg drop-shadow-md whitespace-nowrap">
+        Lv.{@boss_level} {boss_style.name}
+      </div>
+
+      <div class="absolute -bottom-14 lg:-bottom-16 w-32 lg:w-48 h-3 lg:h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-600">
+        <% max_hp = @boss_level * 2000 %>
+        <div
+          class="h-full bg-red-500 transition-all duration-100 ease-out"
+          style={"width: #{(@boss_hp / max_hp) * 100}%"}
+        >
         </div>
+      </div>
+      <div class="absolute -bottom-20 text-[10px] lg:text-xs text-gray-400 font-mono">
+        {Number.Delimit.number_to_delimited(@boss_hp, precision: 0)} / {Number.Delimit.number_to_delimited(
+          max_hp,
+          precision: 0
+        )}
+      </div>
+    </div>
 
-        <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-2 drop-shadow-sm">
-          CURSOR PARTY
-        </h1>
-        <p class="text-gray-400 mb-8 text-sm">Join the massive multiplayer boss raid!</p>
-
-        <.form for={@form} phx-submit="join" class="flex flex-col gap-4">
-          <div class="text-left">
-            <label class="text-xs font-bold text-gray-400 ml-1 uppercase">Nickname</label>
-            <input
-              type="text"
-              name="name"
-              placeholder="Enter your name"
-              required
-              minlength="3"
-              maxlength="20"
-              autocomplete="off"
-              class="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors"
-            />
-          </div>
-
-          <div class="text-left">
-            <label class="text-xs font-bold text-gray-400 ml-1 uppercase">Region</label>
-            <select
-              name="country"
-              class="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-colors appearance-none"
-            >
-              <option value="KR">🇰🇷 Korea</option>
-              <option value="US">🇺🇸 USA</option>
-              <option value="JP">🇯🇵 Japan</option>
-              <option value="CN">🇨🇳 China</option>
-              <option value="EU">🇪🇺 Europe</option>
-              <option value="WO">🌍 World</option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            class="mt-4 w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-3 rounded-lg shadow-lg transform transition-all hover:scale-[1.02] active:scale-95"
+    <%= for cursor <- @cursors do %>
+      <%= if cursor.id != @my_id do %>
+        <div
+          class="absolute pointer-events-none z-30 transition-all duration-100 ease-linear flex flex-col items-center"
+          style={"left: #{cursor.x}%; top: #{cursor.y}%;"}
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill={cursor.color}
+            stroke="white"
+            stroke-width="1.5"
+            class="drop-shadow-md"
           >
-            GAME START
-          </button>
-        </.form>
+            <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.85a.5.5 0 0 0-.85.35Z" />
+          </svg>
+
+          <div
+            class="mt-1 px-2 py-0.5 rounded text-[10px] text-white font-bold shadow-sm whitespace-nowrap flex items-center gap-1.5 border border-white/20 backdrop-blur-sm"
+            style={"background-color: #{cursor.color}cc;"}
+          >
+            <span>{cursor[:flag] || cursor[:country] || "🌍"}</span>
+
+            <span>{cursor[:name] || "Guest"}</span>
+
+            <span class="opacity-50">|</span>
+
+            <span title={get_device_text(cursor)}>
+              {get_device_icon(cursor)}
+            </span>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+
+    <%= if @joined? do %>
+      <% has_thunder = Map.get(@my_items, :skill_thunder, 0) > 0
+      ready_at = Map.get(@my_skill_cd, :skill_thunder, 0) %>
+      <div class="absolute bottom-24 lg:bottom-6 left-1/2 transform -translate-x-1/2 z-20 flex gap-4 pointer-events-none">
+        <div
+          id="skill-timer-thunder"
+          phx-hook="SkillTimer"
+          data-ready-at={ready_at}
+          class={"relative w-14 h-14 lg:w-16 lg:h-16 rounded-xl border-2 flex items-center justify-center overflow-hidden transition-all pointer-events-auto " <>
+             (if has_thunder, do: "bg-blue-900/60 border-yellow-400 shadow-[0_0_20px_rgba(255,215,0,0.6)]", else: "bg-gray-900/80 border-gray-700 opacity-50 grayscale")}
+        >
+          <span class="text-2xl lg:text-3xl filter drop-shadow-lg z-10">⚡</span>
+          <%= if !has_thunder do %>
+            <div class="absolute inset-0 flex items-center justify-center bg-black/60 z-30">
+              <span class="text-lg">🔒</span>
+            </div>
+          <% else %>
+            <div class="cooldown-overlay absolute bottom-0 left-0 w-full bg-black/70 z-20 transition-all duration-75 ease-linear">
+            </div>
+            <div class="cooldown-text absolute inset-0 flex items-center justify-center text-xs font-mono font-bold text-white z-30 pt-4">
+            </div>
+            <div class="ready-effect absolute inset-0 bg-yellow-400/20 animate-pulse z-0 hidden">
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="lg:hidden absolute top-0 w-full p-2 z-30 flex justify-between items-start pointer-events-none">
+    <%= if @joined? do %>
+      <div class="flex flex-col gap-1 pointer-events-auto">
+        <div class="bg-black/60 px-3 py-1 rounded-full border border-white/10 flex items-center gap-2 backdrop-blur-md">
+          <span class="text-yellow-400 text-xs">💰</span>
+          <span class="text-white text-xs font-mono font-bold">
+            {Number.Delimit.number_to_delimited(@my_gold, precision: 0)}
+          </span>
+        </div>
+        <div class="bg-black/60 px-3 py-1 rounded-full border border-white/10 text-[10px] text-gray-300 backdrop-blur-md w-fit">
+          ⚡ {Number.Delimit.number_to_delimited(@my_power + @my_auto, precision: 0)}
+        </div>
+      </div>
+    <% end %>
+
+    <div class="flex gap-2 pointer-events-auto">
+      <div class="bg-black/60 px-2 py-1 rounded-full border border-white/10 text-[10px] text-gray-400 backdrop-blur-md h-8 flex items-center">
+        👥 {length(@leaderboard)}
+      </div>
+      <button
+        id="sound-btn-mobile"
+        phx-hook="SoundControl"
+        phx-update="ignore"
+        class="w-8 h-8 flex items-center justify-center bg-black/60 rounded-full border border-white/10 text-white"
+      >
+        <span class="icon-on">🔊</span><span class="icon-off hidden">🔇</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="lg:hidden absolute bottom-0 w-full h-16 bg-gray-900/90 backdrop-blur-lg border-t border-white/10 flex justify-around items-center z-50 pb-safe pointer-events-auto">
+    <button
+      phx-click="set-mobile-tab"
+      phx-value-tab="chat"
+      class={"flex flex-col items-center p-2 w-full transition-colors " <> (if @mobile_tab == :chat, do: "text-yellow-400", else: "text-gray-500")}
+    >
+      <span class="text-xl">💬</span>
+      <span class="text-[10px] uppercase font-bold mt-0.5">Chat</span>
+    </button>
+    <button
+      phx-click="toggle-shop"
+      class="flex flex-col items-center p-2 w-full transition-colors text-gray-500 hover:text-yellow-400"
+    >
+      <span class="text-xl">🛒</span>
+      <span class="text-[10px] uppercase font-bold mt-0.5">Shop</span>
+    </button>
+    <button
+      phx-click="set-mobile-tab"
+      phx-value-tab="leaderboard"
+      class={"flex flex-col items-center p-2 w-full transition-colors " <> (if @mobile_tab == :leaderboard, do: "text-yellow-400", else: "text-gray-500")}
+    >
+      <span class="text-xl">🏆</span>
+      <span class="text-[10px] uppercase font-bold mt-0.5">Rank</span>
+    </button>
+  </div>
+
+  <%= if @mobile_tab == :chat do %>
+    <div class="lg:hidden absolute bottom-16 left-0 w-full h-64 bg-black/80 backdrop-blur-md border-t border-white/10 z-40 flex flex-col animate-slide-up pointer-events-auto">
+      <div class="px-4 py-2 border-b border-white/10 flex justify-between items-center bg-white/5">
+        <span class="text-xs font-bold text-gray-300">💬 Chat</span>
+        <button phx-click="set-mobile-tab" phx-value-tab="none" class="text-gray-400 px-2">
+          ✕
+        </button>
+      </div>
+      <div
+        id="chat-box-mobile"
+        phx-hook="ChatScroll"
+        class="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar text-xs"
+      >
+        <%= for msg <- Enum.reverse(@chat_messages) do %>
+          <div class="break-words leading-tight">
+            <span class={"font-bold " <> (if msg["user_id"] == @my_id, do: "text-yellow-400", else: "text-blue-300")}>
+              {msg["name"]}:
+            </span>
+            <span class="text-white text-opacity-90">{msg["text"]}</span>
+          </div>
+        <% end %>
+      </div>
+      <%= if @joined? do %>
+        <form
+          phx-submit="send-chat"
+          phx-change="validate-chat"
+          class="p-2 border-t border-white/10"
+        >
+          <input
+            type="text"
+            name="msg"
+            value={@chat_input}
+            autocomplete="off"
+            placeholder="Type here..."
+            class="w-full bg-black/40 border border-white/20 rounded px-2 py-2 text-xs text-white focus:outline-none focus:border-yellow-500"
+          />
+        </form>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%= if @mobile_tab == :leaderboard do %>
+    <div class="lg:hidden absolute bottom-16 left-0 w-full h-80 bg-black/80 backdrop-blur-md border-t border-white/10 z-40 flex flex-col animate-slide-up pointer-events-auto">
+      <div class="px-4 py-2 border-b border-white/10 flex justify-between items-center bg-white/5">
+        <span class="text-xs font-bold text-gray-300">🏆 Leaderboard</span>
+        <button phx-click="set-mobile-tab" phx-value-tab="none" class="text-gray-400 px-2">
+          ✕
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+        <%= for {user, idx} <- Enum.with_index(@leaderboard) do %>
+          <div class={"flex items-center justify-between p-2 rounded text-xs " <> (if user.id == @my_id, do: "bg-blue-900/40 border border-blue-500/30", else: "bg-white/5")}>
+            <div class="flex items-center gap-2">
+              <span class={"font-mono font-bold w-4 text-center " <> (case idx do 0->"text-yellow-400"; 1->"text-gray-300"; 2->"text-orange-400"; _->"text-gray-500" end)}>
+                {idx + 1}
+              </span>
+              <span>{user.country}</span>
+              <span class="truncate max-w-[100px] text-gray-300">{user.name}</span>
+            </div>
+            <span class="font-mono text-gray-400">
+              {Number.Delimit.number_to_delimited(user.total_damage, precision: 0)}
+            </span>
+          </div>
+        <% end %>
       </div>
     </div>
   <% end %>
 
-  <div class="absolute top-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-auto">
+  <div class="hidden lg:flex absolute top-6 right-6 z-50 flex-col items-end gap-3 pointer-events-auto">
     <%= if @joined? do %>
       <div class="flex flex-col bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4 overflow-hidden min-w-[200px]">
         <div class="flex items-center gap-3 px-5 py-3 border-b border-white/5 bg-white/5">
@@ -68,7 +246,6 @@
             {@my_name}
           </span>
         </div>
-
         <div class="px-5 py-3 space-y-2">
           <div class="flex items-center justify-between gap-4 text-xs">
             <span class="text-gray-400 flex items-center gap-1">⚔️ Total Damage</span>
@@ -76,22 +253,17 @@
               {Number.Delimit.number_to_delimited(@my_damage, precision: 0)}
             </span>
           </div>
-
           <div class="flex items-center justify-between gap-4 text-xs">
             <span class="text-yellow-400 flex items-center gap-1">💰 Gold</span>
             <span class="text-yellow-300 font-mono font-bold text-sm">
               {Number.Delimit.number_to_delimited(@my_gold, precision: 0)} G
             </span>
           </div>
-
           <div class="flex items-center justify-between gap-4 text-xs">
             <span class="text-red-400 flex items-center gap-1">⚡ Power</span>
-            <span class="text-red-300 font-mono font-bold">
-              Lv.{@my_power}
-            </span>
+            <span class="text-red-300 font-mono font-bold">Lv.{@my_power}</span>
           </div>
         </div>
-
         <div class="px-5 py-3 border-t border-white/10 bg-white/5">
           <button
             phx-click="toggle-shop"
@@ -107,7 +279,6 @@
           </div>
         </div>
       </div>
-
       <button
         phx-click="logout"
         class="bg-red-500/80 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-full backdrop-blur-md shadow-lg transition-all hover:scale-105 flex items-center gap-2 group border border-red-400/30"
@@ -117,7 +288,7 @@
     <% end %>
   </div>
 
-  <div class="absolute top-6 left-6 z-40 bg-black/50 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-xl min-w-[220px]">
+  <div class="hidden lg:block absolute top-6 left-6 z-40 bg-black/50 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-xl min-w-[220px]">
     <h3 class="text-white font-bold text-sm mb-3 flex items-center gap-2 border-b border-white/10 pb-2">
       <span class="text-yellow-400">🏆</span> LEADERBOARD
     </h3>
@@ -125,13 +296,7 @@
       <%= for {user, idx} <- Enum.with_index(@leaderboard) do %>
         <li class="flex items-center justify-between text-xs group">
           <div class="flex items-center gap-2">
-            <span class={"font-mono font-bold w-4 " <>
-              (case idx do
-                0 -> "text-yellow-400 text-sm"
-                1 -> "text-gray-300"
-                2 -> "text-orange-400"
-                _ -> "text-gray-500"
-              end)}>
+            <span class={"font-mono font-bold w-4 " <> (case idx do 0->"text-yellow-400 text-sm"; 1->"text-gray-300"; 2->"text-orange-400"; _->"text-gray-500" end)}>
               {idx + 1}
             </span>
             <span class="text-lg shadow-sm">{user.country}</span>
@@ -150,113 +315,7 @@
     </ul>
   </div>
 
-  <%= if @winner do %>
-    <div class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 animate-fade-in pointer-events-auto cursor-wait backdrop-blur-sm">
-      <div class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 animate-bounce mb-6 drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]">
-        BOSS DEFEATED!
-      </div>
-
-      <div class="text-3xl text-white font-bold animate-pulse mb-8 flex flex-col items-center gap-2">
-        <span>MVP 👑</span>
-        <span class="text-yellow-400 text-4xl">{@winner}</span>
-      </div>
-
-      <div class="flex flex-col items-center gap-2">
-        <div class="text-gray-400 text-sm font-mono tracking-widest uppercase">Next Boss In</div>
-        <div class="text-5xl font-mono font-bold text-white tabular-nums">
-          {@winner_countdown}
-        </div>
-      </div>
-    </div>
-  <% end %>
-
-  <% boss_style = get_boss_style(@boss_level) %>
-
-  <div
-    id="boss-target"
-    phx-hook="BossEffect"
-    phx-click="hit-boss"
-    class="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-20 group"
-    style="top: 50%; left: 50%; width: 250px; height: 250px;"
-  >
-    <div class={"w-full h-full bg-gradient-to-br #{boss_style.color} rounded-full shadow-[0_0_60px_rgba(0,0,0,0.6)] flex flex-col items-center justify-center text-white font-bold border-4 #{boss_style.border} group-hover:scale-105 transition-all duration-200 relative overflow-hidden"}>
-      <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-
-      <div class="absolute top-8 px-2 py-0.5 bg-black/50 rounded text-[10px] font-mono border border-white/10 text-yellow-300">
-        Lv.{@boss_level}
-      </div>
-
-      <%= if boss_style.emoji == "slime" do %>
-        <span class="text-4xl mb-1 drop-shadow-md z-10 select-none">👹</span>
-      <% else %>
-        <span class="text-5xl mb-1 drop-shadow-md z-10 select-none">{boss_style.emoji}</span>
-      <% end %>
-
-      <span class="text-xs text-gray-200 opacity-80 z-10 font-mono tracking-widest mb-1">
-        {boss_style.name}
-      </span>
-
-      <div class="text-lg bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm z-10 border border-white/10 font-mono">
-        HP: {Number.Delimit.number_to_delimited(@boss_hp, precision: 0)}
-      </div>
-
-      <svg
-        class="absolute inset-0 w-full h-full -rotate-90 opacity-30 pointer-events-none"
-        viewBox="0 0 100 100"
-      >
-        <% max_hp = @boss_level * 2000 %>
-        <circle
-          cx="50"
-          cy="50"
-          r="48"
-          fill="none"
-          stroke="white"
-          stroke-width="2"
-          stroke-dasharray="301.59"
-          stroke-dashoffset={301.59 * (1 - @boss_hp / max_hp)}
-          class="transition-all duration-300 ease-out"
-        />
-      </svg>
-    </div>
-  </div>
-
-  <%= for cursor <- @cursors do %>
-    <%= if cursor.id != @my_id do %>
-      <div
-        class="absolute pointer-events-none z-30 transition-all duration-100 ease-linear flex flex-col items-center"
-        style={"left: #{cursor.x}%; top: #{cursor.y}%;"}
-      >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill={cursor.color}
-          stroke="white"
-          stroke-width="1.5"
-          class="drop-shadow-md"
-        >
-          <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.85a.5.5 0 0 0-.85.35Z" />
-        </svg>
-
-        <div
-          class="mt-1 px-2 py-0.5 rounded text-[10px] text-white font-bold shadow-sm whitespace-nowrap flex items-center gap-1.5 border border-white/20 backdrop-blur-sm"
-          style={"background-color: #{cursor.color}cc;"}
-        >
-          <span>{cursor[:flag] || cursor[:country] || "🌍"}</span>
-
-          <span>{cursor[:name] || "Guest"}</span>
-
-          <span class="opacity-50">|</span>
-
-          <span title={get_device_text(cursor)}>
-            {get_device_icon(cursor)}
-          </span>
-        </div>
-      </div>
-    <% end %>
-  <% end %>
-
-  <div class="absolute bottom-6 left-6 z-40 flex flex-col gap-2 w-[300px] pointer-events-auto">
+  <div class="hidden lg:flex absolute bottom-6 left-6 z-40 flex-col gap-2 w-[300px] pointer-events-auto">
     <div class="bg-black/60 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden flex flex-col h-[200px] transition-opacity duration-300 hover:opacity-100 opacity-80">
       <div
         id="chat-box"
@@ -264,20 +323,17 @@
         class="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar text-xs font-medium"
       >
         <%= for msg <- Enum.reverse(@chat_messages) do %>
-          <div class="break-words leading-tight">
-            <span class={"font-bold " <> (if msg.user_id == @my_id, do: "text-yellow-400", else: "text-blue-300")}>
-              {msg.name}:
+          <div class="break-words leading-tight shadow-sm">
+            <span class={"font-bold " <> (if msg["user_id"] == @my_id, do: "text-yellow-400", else: "text-blue-300")}>
+              {msg["name"]}:
             </span>
-            <span class="text-white text-opacity-90">{msg.text}</span>
+            <span class="text-white text-opacity-90">{msg["text"]}</span>
           </div>
         <% end %>
         <%= if @chat_messages == [] do %>
-          <div class="text-gray-500 italic text-center mt-10">
-            Say hello! 👋
-          </div>
+          <div class="text-gray-500 italic text-center mt-10">Say hello! 👋</div>
         <% end %>
       </div>
-
       <%= if @joined? do %>
         <form
           phx-submit="send-chat"
@@ -300,7 +356,6 @@
         </div>
       <% end %>
     </div>
-
     <div class="bg-black/50 backdrop-blur-md p-3 rounded-xl border border-white/10 text-gray-300 shadow-lg transition-opacity hover:opacity-100 opacity-50 hover:border-white/30 text-xs">
       <div class="font-bold text-white mb-1 flex items-center gap-2 border-b border-white/10 pb-1">
         <span>💡 How to Play</span>
@@ -314,7 +369,7 @@
     </div>
   </div>
 
-  <div class="absolute bottom-6 right-6 z-10 flex flex-col items-end gap-3">
+  <div class="hidden lg:flex absolute bottom-6 right-6 z-10 flex-col items-end gap-3">
     <button
       id="sound-btn"
       phx-hook="SoundControl"
@@ -356,7 +411,7 @@
         class="bg-black/50 hover:bg-black/80 text-white p-3 rounded-full backdrop-blur-md border border-white/10 transition-all hover:scale-110 hover:border-white/30 group"
         title="View Source"
       >
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
           <path
             fill-rule="evenodd"
             d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
@@ -365,7 +420,6 @@
           </path>
         </svg>
       </a>
-
       <a
         href="https://velog.io/@do-hyun123/posts"
         target="_blank"
@@ -386,7 +440,7 @@
 
     <div class="text-right">
       <div class="text-gray-500 text-[10px] font-mono mb-0.5">
-        Ver 2.1.0 • Sound Effects • Particle Effects • UI Improvements
+        Ver 2.2.0 • Mobile Update • Database Update
       </div>
       <div class="text-gray-400 text-xs font-medium bg-black/30 px-2 py-1 rounded backdrop-blur-sm border border-white/5">
         Powered by <span class="text-purple-400">Elixir</span>
@@ -395,35 +449,173 @@
     </div>
   </div>
 
-  <%= if @joined? do %>
-    <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 flex gap-4">
-      <% has_thunder = Map.get(@my_items, :skill_thunder, 0) > 0
-      # 다음 발동 시간 (없으면 0)
-      ready_at = Map.get(@my_skill_cd, :skill_thunder, 0) %>
+  <%= if !@joined? do %>
+    <div class="absolute inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-500 p-4">
+      <div class="bg-white/10 p-8 rounded-2xl border border-white/20 shadow-2xl max-w-md w-full text-center relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
+        </div>
+        <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-2 drop-shadow-sm">
+          CURSOR PARTY
+        </h1>
+        <p class="text-gray-400 mb-8 text-sm">Join the massive multiplayer boss raid!</p>
+        <.form for={@form} phx-submit="join" class="flex flex-col gap-4">
+          <div class="text-left">
+            <label class="text-xs font-bold text-gray-400 ml-1 uppercase">Nickname</label>
+            <input
+              type="text"
+              name="name"
+              placeholder="Enter your name"
+              required
+              minlength="3"
+              maxlength="20"
+              autocomplete="off"
+              class="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors"
+            />
+          </div>
+          <div class="text-left">
+            <label class="text-xs font-bold text-gray-400 ml-1 uppercase">Region</label>
+            <select
+              name="country"
+              class="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-colors appearance-none"
+            >
+              <option value="KR">🇰🇷 Korea</option>
+              <option value="US">🇺🇸 USA</option>
+              <option value="JP">🇯🇵 Japan</option>
+              <option value="CN">🇨🇳 China</option>
+              <option value="EU">🇪🇺 Europe</option>
+              <option value="WO">🌍 World</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            class="mt-4 w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-3 rounded-lg shadow-lg transform transition-all hover:scale-[1.02] active:scale-95"
+          >
+            GAME START
+          </button>
+        </.form>
+      </div>
+    </div>
+  <% end %>
 
+  <%= if @show_shop do %>
+    <div class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
       <div
-        id="skill-timer-thunder"
-        phx-hook="SkillTimer"
-        data-ready-at={ready_at}
-        class={"relative w-16 h-16 rounded-xl border-2 flex items-center justify-center overflow-hidden transition-all " <>
-            (if has_thunder, do: "bg-blue-900/60 border-yellow-400 shadow-[0_0_20px_rgba(255,215,0,0.6)]", else: "bg-gray-900/80 border-gray-700 opacity-50 grayscale")}
+        class="bg-gray-900 border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative transform scale-100 animate-in zoom-in-95 duration-200"
+        phx-click-away="close-shop"
+        phx-window-keydown="close-shop"
+        phx-key="escape"
       >
-        <span class="text-3xl filter drop-shadow-lg z-10">⚡</span>
+        <div class="bg-gradient-to-r from-gray-800 to-gray-900 px-6 py-4 border-b border-white/10 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🛒</span>
+            <div>
+              <h2 class="text-xl font-bold text-white">Item Shop</h2>
+              <p class="text-xs text-gray-400">Upgrade your gear & skills!</p>
+            </div>
+          </div>
+          <div class="bg-black/40 px-3 py-1.5 rounded-lg border border-yellow-500/30 flex items-center gap-2">
+            <span class="text-yellow-400 text-sm">💰</span>
+            <span class="text-yellow-300 font-mono font-bold">
+              {Number.Delimit.number_to_delimited(@my_gold, precision: 0)} G
+            </span>
+          </div>
+        </div>
+        <div class="flex border-b border-white/5 bg-black/20">
+          <button
+            phx-click="set-shop-tab"
+            phx-value-tab="weapon"
+            class={"flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors " <> (if @active_shop_tab == :weapon, do: "bg-white/10 text-white border-b-2 border-yellow-500", else: "text-gray-500 hover:text-gray-300 hover:bg-white/5")}
+          >
+            ⚔️ Weapons
+          </button>
+          <button
+            phx-click="set-shop-tab"
+            phx-value-tab="skill"
+            class={"flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors " <> (if @active_shop_tab == :skill, do: "bg-white/10 text-white border-b-2 border-yellow-500", else: "text-gray-500 hover:text-gray-300 hover:bg-white/5")}
+          >
+            📜 Skills
+          </button>
+        </div>
+        <div class="p-6 max-h-[50vh] overflow-y-auto custom-scrollbar space-y-3 bg-black/20">
+          <%= for {id, item} <- Enum.sort_by(@shop_catalog, fn {_, v} -> v.base_cost end) |> Enum.filter(fn {_, v} -> v.category == @active_shop_tab end) do %>
+            <% current_level = Map.get(@my_items, id, 0)
+            is_skill = item.type == :skill
+            is_sold_out = is_skill and current_level >= 1
+            cost = floor(item.base_cost * :math.pow(item.cost_factor, current_level))
+            can_buy = not is_sold_out and @my_gold >= cost %>
+            <div class={"relative group flex items-center justify-between p-3 rounded-xl border transition-all " <> (if can_buy, do: "bg-white/5 border-white/10 hover:bg-white/10", else: "bg-black/40 border-white/5 opacity-60 grayscale")}>
+              <div class="flex items-center gap-4">
+                <div class={"w-12 h-12 rounded-lg flex items-center justify-center text-2xl shadow-inner " <> (if can_buy, do: "bg-gray-800", else: "bg-black")}>
+                  {item.icon}
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-bold text-gray-200">{item.name}</h3>
+                    <%= if is_skill do %>
+                      <%= if is_sold_out do %>
+                        <span class="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded border border-green-500/30">
+                          LEARNED
+                        </span>
+                      <% else %>
+                        <span class="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30">
+                          SKILL
+                        </span>
+                      <% end %>
+                    <% else %>
+                      <span class="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/30">
+                        Lv.{current_level}
+                      </span>
+                    <% end %>
+                  </div>
+                  <p class="text-xs text-gray-400 mt-0.5">{item.desc}</p>
+                </div>
+              </div>
+              <%= if is_sold_out do %>
+                <div class="px-4 py-2 font-bold text-xs text-green-500 border border-green-500/30 rounded-lg bg-green-500/10">
+                  SOLD OUT
+                </div>
+              <% else %>
+                <button
+                  phx-click="buy-item"
+                  phx-value-id={id}
+                  disabled={!can_buy}
+                  class={"px-4 py-2 rounded-lg font-bold text-xs shadow-lg transition-transform active:scale-95 flex flex-col items-end min-w-[80px] " <> (if can_buy, do: "bg-yellow-500 hover:bg-yellow-400 text-black", else: "bg-gray-700 text-gray-400 cursor-not-allowed")}
+                >
+                  <span>Buy</span>
+                  <span class="font-mono text-[10px] opacity-80">
+                    {Number.Delimit.number_to_delimited(cost, precision: 0)} G
+                  </span>
+                </button>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+        <div class="bg-gray-800/50 px-6 py-3 border-t border-white/5 flex justify-end">
+          <button
+            phx-click="close-shop"
+            class="px-5 py-2 cursor-pointer rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
 
-        <%= if !has_thunder do %>
-          <div class="absolute inset-0 flex items-center justify-center bg-black/60 z-30">
-            <span class="text-lg">🔒</span>
-          </div>
-        <% else %>
-          <div class="cooldown-overlay absolute bottom-0 left-0 w-full bg-black/70 z-20 transition-all duration-75 ease-linear">
-          </div>
-
-          <div class="cooldown-text absolute inset-0 flex items-center justify-center text-xs font-mono font-bold text-white z-30 pt-4">
-          </div>
-
-          <div class="ready-effect absolute inset-0 bg-yellow-400/20 animate-pulse z-0 hidden">
-          </div>
-        <% end %>
+  <%= if @winner do %>
+    <div class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 animate-fade-in pointer-events-auto cursor-wait backdrop-blur-sm">
+      <div class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 animate-bounce mb-6 drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]">
+        BOSS DEFEATED!
+      </div>
+      <div class="text-3xl text-white font-bold animate-pulse mb-8 flex flex-col items-center gap-2">
+        <span>MVP 👑</span>
+        <span class="text-yellow-400 text-4xl">{@winner}</span>
+      </div>
+      <div class="flex flex-col items-center gap-2">
+        <div class="text-gray-400 text-sm font-mono tracking-widest uppercase">Next Boss In</div>
+        <div class="text-5xl font-mono font-bold text-white tabular-nums">
+          {@winner_countdown}
+        </div>
       </div>
     </div>
   <% end %>
@@ -435,115 +627,3 @@
     </div>
   <% end %>
 </div>
-
-<%= if @show_shop do %>
-  <div class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
-    <div
-      class="bg-gray-900 border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative transform scale-100 animate-in zoom-in-95 duration-200"
-      phx-click-away="close-shop"
-      phx-window-keydown="close-shop"
-      phx-key="escape"
-    >
-      <div class="bg-gradient-to-r from-gray-800 to-gray-900 px-6 py-4 border-b border-white/10 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <span class="text-2xl">🛒</span>
-          <div>
-            <h2 class="text-xl font-bold text-white">Item Shop</h2>
-            <p class="text-xs text-gray-400">Upgrade your gear & skills!</p>
-          </div>
-        </div>
-        <div class="bg-black/40 px-3 py-1.5 rounded-lg border border-yellow-500/30 flex items-center gap-2">
-          <span class="text-yellow-400 text-sm">💰</span>
-          <span class="text-yellow-300 font-mono font-bold">
-            {Number.Delimit.number_to_delimited(@my_gold, precision: 0)} G
-          </span>
-        </div>
-      </div>
-
-      <div class="flex border-b border-white/5 bg-black/20">
-        <button
-          phx-click="set-shop-tab"
-          phx-value-tab="weapon"
-          class={"flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors " <> (if @active_shop_tab == :weapon, do: "bg-white/10 text-white border-b-2 border-yellow-500", else: "text-gray-500 hover:text-gray-300 hover:bg-white/5")}
-        >
-          ⚔️ Weapons
-        </button>
-        <button
-          phx-click="set-shop-tab"
-          phx-value-tab="skill"
-          class={"flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors " <> (if @active_shop_tab == :skill, do: "bg-white/10 text-white border-b-2 border-yellow-500", else: "text-gray-500 hover:text-gray-300 hover:bg-white/5")}
-        >
-          📜 Skills
-        </button>
-      </div>
-
-      <div class="p-6 max-h-[50vh] overflow-y-auto custom-scrollbar space-y-3 bg-black/20">
-        <%= for {id, item} <- Enum.sort_by(@shop_catalog, fn {_, v} -> v.base_cost end) |> Enum.filter(fn {_, v} -> v.category == @active_shop_tab end) do %>
-          <% current_level = Map.get(@my_items, id, 0)
-          is_skill = item.type == :skill
-          # 스킬은 1렙이 만렙이므로 이미 배웠으면 구매 불가 처리
-          is_sold_out = is_skill and current_level >= 1
-
-          cost = floor(item.base_cost * :math.pow(item.cost_factor, current_level))
-          can_buy = not is_sold_out and @my_gold >= cost %>
-
-          <div class={"relative group flex items-center justify-between p-3 rounded-xl border transition-all " <> (if can_buy, do: "bg-white/5 border-white/10 hover:bg-white/10", else: "bg-black/40 border-white/5 opacity-60 grayscale")}>
-            <div class="flex items-center gap-4">
-              <div class={"w-12 h-12 rounded-lg flex items-center justify-center text-2xl shadow-inner " <> (if can_buy, do: "bg-gray-800", else: "bg-black")}>
-                {item.icon}
-              </div>
-              <div>
-                <div class="flex items-center gap-2">
-                  <h3 class="font-bold text-gray-200">{item.name}</h3>
-                  <%= if is_skill do %>
-                    <%= if is_sold_out do %>
-                      <span class="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded border border-green-500/30">
-                        LEARNED
-                      </span>
-                    <% else %>
-                      <span class="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30">
-                        SKILL
-                      </span>
-                    <% end %>
-                  <% else %>
-                    <span class="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/30">
-                      Lv.{current_level}
-                    </span>
-                  <% end %>
-                </div>
-                <p class="text-xs text-gray-400 mt-0.5">{item.desc}</p>
-              </div>
-            </div>
-
-            <%= if is_sold_out do %>
-              <div class="px-4 py-2 font-bold text-xs text-green-500 border border-green-500/30 rounded-lg bg-green-500/10">
-                SOLD OUT
-              </div>
-            <% else %>
-              <button
-                phx-click="buy-item"
-                phx-value-id={id}
-                disabled={!can_buy}
-                class={"px-4 py-2 rounded-lg font-bold text-xs shadow-lg transition-transform active:scale-95 flex flex-col items-end min-w-[80px] " <> (if can_buy, do: "bg-yellow-500 hover:bg-yellow-400 text-black", else: "bg-gray-700 text-gray-400 cursor-not-allowed")}
-              >
-                <span>Buy</span>
-                <span class="font-mono text-[10px] opacity-80">
-                  {Number.Delimit.number_to_delimited(cost, precision: 0)} G
-                </span>
-              </button>
-            <% end %>
-          </div>
-        <% end %>
-      </div>
-
-      <div class="bg-gray-800/50 px-6 py-3 border-t border-white/5 flex justify-end">
-        <button
-          phx-click="close-shop"
-          class="px-5 py-2 cursor-pointer rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold transition-colors"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
-<% end %>
