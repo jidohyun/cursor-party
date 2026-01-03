@@ -494,7 +494,7 @@ defmodule CursorPartyWeb.PageLive do
           color: "from-gray-900 via-purple-900 to-black",
           border: "border-purple-500",
           emoji: "👑",
-          name: "GOD KING"
+          name: "GOD KING - Phase #{level - 29}"
         }
 
       level >= 25 ->

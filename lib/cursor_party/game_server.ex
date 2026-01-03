@@ -7,11 +7,11 @@ defmodule CursorParty.GameServer do
   # ============================================================================
   # 상수
   # ============================================================================
-  @base_hp_per_level 2000
+  @base_hp_per_level 2500
   @cooldown_ms 50
   @human_limit_ms 15
   @ban_duration_ms 60_000
-  @max_level 30
+  @max_level 999_999
 
   @shop_items %{
     sword: %{
