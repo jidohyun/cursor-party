@@ -385,7 +385,7 @@ defmodule CursorParty.GameCore do
 
   # 보스 다음 레벨 체력 계산
   def calculate_boss_hp(level) do
-    base = 200
+    base = 2000
     growth_rate = 1.20
     hp = base * :math.pow(growth_rate, level - 1)
     linear_bonus = (level - 1) * 500
