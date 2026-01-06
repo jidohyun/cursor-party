@@ -11,295 +11,294 @@ defmodule CursorParty.GameCore do
   @max_level 999_999
 
   # 아이템 정의를 이곳에서 통합 관리
-  @shop_items %{
-    # --- 기본 능력 (꾸준한 투자 필요) ---
-    basic_power: %{
-      id: :basic_power,
-      name: "Muscle Training",
-      icon: "💪",
-      desc: "+1 Base Click Damage (Stackable)",
-      # 50 -> 100 (2배)
-      base_cost: 100,
-      # 1.2 -> 1.5 (가격이 더 빨리 비싸짐)
-      cost_factor: 1.5,
-      type: :power,
-      # 5 -> 1 (효율 1/5 토막)
-      value: 1,
-      category: :basic
+  @shop_items(
+    %{
+      # --- 기본 능력 (꾸준한 투자 필요) ---
+      basic_power: %{
+        id: :basic_power,
+        name: "Muscle Training",
+        icon: "💪",
+        desc: "+1 Base Click Damage (Stackable)",
+        # 100 -> 50 (초반 진입 장벽 완화)
+        base_cost: 50,
+        # 1.5 -> 1.3 (가격 상승폭 완화)
+        cost_factor: 1.3,
+        type: :power,
+        value: 1,
+        category: :basic
+      },
+      basic_crit: %{
+        id: :basic_crit,
+        name: "Sharp Whetstone",
+        icon: "💎",
+        desc: "+1% Critical Chance (Max 50%)",
+        # 5,000 -> 2,000 (접근성 향상)
+        base_cost: 2_000,
+        # 2.5 -> 2.0 (투자할만하게 변경)
+        cost_factor: 2.0,
+        type: :passive,
+        value: 1,
+        category: :basic,
+        max_level: 50
+      },
+
+      # --- 무기 (티어 간 장벽 완화 및 부드러운 곡선) ---
+      # Tier 1: 입문
+      w_01_stick: %{
+        id: :w_01_stick,
+        name: "Wooden Stick",
+        icon: "🪵",
+        desc: "+5 Power",
+        # 1,000 -> 500
+        base_cost: 500,
+        cost_factor: 1.5,
+        type: :power,
+        value: 5,
+        category: :weapon
+      },
+      # Tier 2: 초보자
+      w_02_dagger: %{
+        id: :w_02_dagger,
+        name: "Rusty Dagger",
+        icon: "🗡️",
+        desc: "+50 Power",
+        # 50만 -> 15,000 (대폭 완화)
+        base_cost: 15_000,
+        cost_factor: 1.6,
+        type: :power,
+        value: 50,
+        category: :weapon
+      },
+      # Tier 3: 중수
+      w_03_sword: %{
+        id: :w_03_sword,
+        name: "Iron Sword",
+        icon: "⚔️",
+        desc: "+500 Power",
+        # 1억 -> 500,000 (현실적인 목표)
+        base_cost: 500_000,
+        cost_factor: 1.7,
+        type: :power,
+        value: 500,
+        category: :weapon
+      },
+      # Tier 4: 고수
+      w_04_axe: %{
+        id: :w_04_axe,
+        name: "Battle Axe",
+        icon: "🪓",
+        # value와 매칭
+        desc: "+5,000 Power",
+        # 500억 -> 2,000만
+        base_cost: 20_000_000,
+        cost_factor: 1.8,
+        type: :power,
+        value: 5_000,
+        category: :weapon
+      },
+      # Tier 5: 영웅
+      w_05_gun: %{
+        id: :w_05_gun,
+        name: "Revolver",
+        icon: "🔫",
+        desc: "+50,000 Power",
+        # 10조 -> 10억
+        base_cost: 1_000_000_000,
+        cost_factor: 2.0,
+        type: :power,
+        value: 50_000,
+        category: :weapon
+      },
+      # Tier 6: 전설
+      w_06_tank: %{
+        id: :w_06_tank,
+        name: "Main Battle Tank",
+        icon: "🚜",
+        desc: "+500,000 Power",
+        # 5000조 -> 500억
+        base_cost: 50_000_000_000,
+        cost_factor: 2.2,
+        type: :power,
+        value: 500_000,
+        category: :weapon
+      },
+      # Tier 7: 신화
+      w_07_laser: %{
+        id: :w_07_laser,
+        name: "Orbital Laser",
+        icon: "🛰️",
+        desc: "+5 Million Power",
+        # 100경 -> 2조
+        base_cost: 2_000_000_000_000,
+        cost_factor: 2.5,
+        type: :power,
+        value: 5_000_000,
+        category: :weapon
+      },
+      # Tier 8: 졸업 (도전적인 목표 유지하되 불가능은 아님)
+      w_08_nuke: %{
+        id: :w_08_nuke,
+        name: "Antimatter Bomb",
+        icon: "☢️",
+        desc: "+100 Million Power",
+        # 1자 -> 500조
+        base_cost: 500_000_000_000_000,
+        cost_factor: 3.0,
+        type: :power,
+        value: 100_000_000,
+        category: :weapon
+      },
+
+      # --- 스킬 (전략 무기) ---
+      skill_thunder: %{
+        id: :skill_thunder,
+        name: "Grimoire: Thunderbolt",
+        icon: "⚡",
+        desc: "Deal 10x Click DMG (30s CD)",
+        # 5천만 -> 100만 (초중반에 재미 요소로 활용 가능하게)
+        base_cost: 1_000_000,
+        cost_factor: 2.0,
+        type: :skill,
+        value: 0,
+        category: :skill,
+        max_level: 1
+      },
+      skill_rage: %{
+        id: :skill_rage,
+        name: "Potion: Rage",
+        icon: "😡",
+        desc: "Double Click Power (Passive)",
+        # 5000억 -> 5억 (중반 부스팅용)
+        base_cost: 500_000_000,
+        cost_factor: 1.0,
+        type: :buff,
+        value: 2,
+        category: :skill,
+        max_level: 1
+      }
     },
-    basic_crit: %{
-      id: :basic_crit,
-      name: "Sharp Whetstone",
-      icon: "💎",
-      desc: "+1% Critical Chance (Max 50%)",
-      # 500 -> 5,000 (10배)
-      base_cost: 5_000,
-      # 1.5 -> 2.5 (크리티컬은 고급 스탯임)
-      cost_factor: 2.5,
-      type: :passive,
-      value: 1,
-      category: :basic,
-      max_level: 50
-    },
+    @boss_list([
+      # Tier 1: 미물 (1~10)
+      %{emoji: "🦠", name: "Cell"},
+      %{emoji: "🪱", name: "Worm"},
+      %{emoji: "🪰", name: "Fly"},
+      %{emoji: "🦟", name: "Mosquito"},
+      %{emoji: "🐜", name: "Ant"},
+      %{emoji: "🪳", name: "Cockroach"},
+      %{emoji: "🐌", name: "Snail"},
+      %{emoji: "🐞", name: "Ladybug"},
+      %{emoji: "🐛", name: "Caterpillar"},
+      %{emoji: "🦋", name: "Butterfly"},
 
-    # --- 무기 (티어 간 장벽 생성) ---
-    # Tier 1: 입문
-    w_01_stick: %{
-      id: :w_01_stick,
-      name: "Wooden Stick",
-      icon: "🪵",
-      desc: "+5 Power",
-      # 200 -> 1,000
-      base_cost: 1_000,
-      cost_factor: 1.8,
-      type: :power,
-      # 10 -> 5 (너프)
-      value: 5,
-      category: :weapon
-    },
-    # Tier 2: 초보자 (여기서부터 막히기 시작함)
-    w_02_dagger: %{
-      id: :w_02_dagger,
-      name: "Rusty Dagger",
-      icon: "🗡️",
-      desc: "+50 Power",
-      # 3천 -> 50만 (약 160배 증가)
-      base_cost: 500_000,
-      cost_factor: 2.0,
-      type: :power,
-      # 150 -> 50 (너프)
-      value: 50,
-      category: :weapon
-    },
-    # Tier 3: 중수 (백만 단위)
-    w_03_sword: %{
-      id: :w_03_sword,
-      name: "Iron Sword",
-      icon: "⚔️",
-      desc: "+500 Power",
-      # 5만 -> 1억 (단위 점프)
-      base_cost: 100_000_000,
-      cost_factor: 2.2,
-      type: :power,
-      value: 500,
-      category: :weapon
-    },
-    # Tier 4: 고수 (억 단위)
-    w_04_axe: %{
-      id: :w_04_axe,
-      name: "Battle Axe",
-      icon: "🪓",
-      desc: "+10,000 Power",
-      # 150만 -> 500억
-      base_cost: 50_000_000_000,
-      cost_factor: 2.5,
-      type: :power,
-      value: 10_000,
-      category: :weapon
-    },
-    # Tier 5: 영웅 (조 단위)
-    w_05_gun: %{
-      id: :w_05_gun,
-      name: "Revolver",
-      icon: "🔫",
-      desc: "+250,000 Power",
-      # 5천만 -> 10조
-      base_cost: 10_000_000_000_000,
-      cost_factor: 2.8,
-      type: :power,
-      value: 250_000,
-      category: :weapon
-    },
-    # Tier 6: 전설 (경 단위)
-    w_06_tank: %{
-      id: :w_06_tank,
-      name: "Main Battle Tank",
-      icon: "🚜",
-      desc: "+10 Million Power",
-      # 200억 -> 5000조 (5경)
-      base_cost: 5_000_000_000_000_000,
-      cost_factor: 3.2,
-      type: :power,
-      value: 10_000_000,
-      category: :weapon
-    },
-    # Tier 7: 신화 (해 단위)
-    w_07_laser: %{
-      id: :w_07_laser,
-      name: "Orbital Laser",
-      icon: "🛰️",
-      desc: "+5 Billion Power",
-      # 5조 -> 100경 (1해)
-      base_cost: 1_000_000_000_000_000_000,
-      cost_factor: 4.0,
-      type: :power,
-      value: 5_000_000_000,
-      category: :weapon
-    },
-    # Tier 8: 졸업 (자 단위 - 사실상 불가능의 영역)
-    w_08_nuke: %{
-      id: :w_08_nuke,
-      name: "Antimatter Bomb",
-      icon: "☢️",
-      desc: "+10 Trillion Power",
-      # 1자 (10^24) - 하루 종일 클릭해도 못 삼
-      base_cost: 1_000_000_000_000_000_000_000_000,
-      cost_factor: 5.0,
-      type: :power,
-      value: 10_000_000_000_000,
-      category: :weapon
-    },
+      # Tier 2: 소동물 (11~20)
+      %{emoji: "🐭", name: "Mouse"},
+      %{emoji: "🐹", name: "Hamster"},
+      %{emoji: "🐰", name: "Rabbit"},
+      %{emoji: "🐿️", name: "Chipmunk"},
+      %{emoji: "🦔", name: "Hedgehog"},
+      %{emoji: "🦇", name: "Bat"},
+      %{emoji: "🐍", name: "Snake"},
+      %{emoji: "🦎", name: "Lizard"},
+      %{emoji: "🐸", name: "Frog"},
+      %{emoji: "🐢", name: "Turtle"},
 
-    # --- 스킬 (전략 무기) ---
-    skill_thunder: %{
-      id: :skill_thunder,
-      name: "Grimoire: Thunderbolt",
-      icon: "⚡",
-      desc: "Deal 10x Click DMG (30s CD)",
-      # 1만 -> 5천만 (초반에 못 삼)
-      base_cost: 50_000_000,
-      cost_factor: 2.0,
-      type: :skill,
-      value: 0,
-      category: :skill,
-      max_level: 1
-    },
-    skill_rage: %{
-      id: :skill_rage,
-      name: "Potion: Rage",
-      icon: "😡",
-      desc: "Double Click Power (Passive)",
-      # 10만 -> 5000억 (중후반용)
-      base_cost: 500_000_000_000,
-      cost_factor: 1.0,
-      type: :buff,
-      value: 2,
-      category: :skill,
-      max_level: 1
-    }
-  }
+      # Tier 3: 가축 & 야수 (21~30)
+      %{emoji: "🐔", name: "Chicken"},
+      %{emoji: "🦆", name: "Duck"},
+      %{emoji: "🐖", name: "Pig"},
+      %{emoji: "🐑", name: "Sheep"},
+      %{emoji: "🐐", name: "Goat"},
+      %{emoji: "🐕", name: "Dog"},
+      %{emoji: "🐈", name: "Cat"},
+      %{emoji: "🐂", name: "Ox"},
+      %{emoji: "🐎", name: "Horse"},
+      %{emoji: "🐃", name: "Buffalo"},
 
-  @boss_list [
-    # Tier 1: 미물 (1~10)
-    %{emoji: "🦠", name: "Cell"},
-    %{emoji: "🪱", name: "Worm"},
-    %{emoji: "🪰", name: "Fly"},
-    %{emoji: "🦟", name: "Mosquito"},
-    %{emoji: "🐜", name: "Ant"},
-    %{emoji: "🪳", name: "Cockroach"},
-    %{emoji: "🐌", name: "Snail"},
-    %{emoji: "🐞", name: "Ladybug"},
-    %{emoji: "🐛", name: "Caterpillar"},
-    %{emoji: "🦋", name: "Butterfly"},
+      # Tier 4: 맹수 (31~40)
+      %{emoji: "🐗", name: "Boar"},
+      %{emoji: "🐺", name: "Wolf"},
+      %{emoji: "🦊", name: "Fox"},
+      %{emoji: "🐆", name: "Leopard"},
+      %{emoji: "🐅", name: "Tiger"},
+      %{emoji: "🦁", name: "Lion"},
+      %{emoji: "🦍", name: "Gorilla"},
+      %{emoji: "🐻", name: "Bear"},
+      %{emoji: "🐊", name: "Crocodile"},
+      %{emoji: "🦏", name: "Rhino"},
 
-    # Tier 2: 소동물 (11~20)
-    %{emoji: "🐭", name: "Mouse"},
-    %{emoji: "🐹", name: "Hamster"},
-    %{emoji: "🐰", name: "Rabbit"},
-    %{emoji: "🐿️", name: "Chipmunk"},
-    %{emoji: "🦔", name: "Hedgehog"},
-    %{emoji: "🦇", name: "Bat"},
-    %{emoji: "🐍", name: "Snake"},
-    %{emoji: "🦎", name: "Lizard"},
-    %{emoji: "🐸", name: "Frog"},
-    %{emoji: "🐢", name: "Turtle"},
+      # Tier 5: 심해 & 고대생물 (41~50)
+      %{emoji: "🦈", name: "Shark"},
+      %{emoji: "🐋", name: "Whale"},
+      %{emoji: "🐙", name: "Kraken"},
+      %{emoji: "🦑", name: "Giant Squid"},
+      %{emoji: "🦂", name: "Scorpion"},
+      %{emoji: "🕷️", name: "Tarantula"},
+      %{emoji: "🦖", name: "T-Rex"},
+      %{emoji: "🦕", name: "Brachiosaurus"},
+      %{emoji: "🦣", name: "Mammoth"},
+      %{emoji: "🐲", name: "Dragon Head"},
 
-    # Tier 3: 가축 & 야수 (21~30)
-    %{emoji: "🐔", name: "Chicken"},
-    %{emoji: "🦆", name: "Duck"},
-    %{emoji: "🐖", name: "Pig"},
-    %{emoji: "🐑", name: "Sheep"},
-    %{emoji: "🐐", name: "Goat"},
-    %{emoji: "🐕", name: "Dog"},
-    %{emoji: "🐈", name: "Cat"},
-    %{emoji: "🐂", name: "Ox"},
-    %{emoji: "🐎", name: "Horse"},
-    %{emoji: "🐃", name: "Buffalo"},
+      # Tier 6: 몬스터 (51~60)
+      %{emoji: "👺", name: "Goblin"},
+      %{emoji: "👹", name: "Oni"},
+      %{emoji: "👻", name: "Ghost"},
+      %{emoji: "💀", name: "Skeleton"},
+      %{emoji: "👽", name: "Alien"},
+      %{emoji: "👾", name: "Invader"},
+      %{emoji: "🤖", name: "Robot"},
+      %{emoji: "🧟", name: "Zombie"},
+      %{emoji: "🧛", name: "Vampire"},
+      %{emoji: "🧞", name: "Genie"},
 
-    # Tier 4: 맹수 (31~40)
-    %{emoji: "🐗", name: "Boar"},
-    %{emoji: "🐺", name: "Wolf"},
-    %{emoji: "🦊", name: "Fox"},
-    %{emoji: "🐆", name: "Leopard"},
-    %{emoji: "🐅", name: "Tiger"},
-    %{emoji: "🦁", name: "Lion"},
-    %{emoji: "🦍", name: "Gorilla"},
-    %{emoji: "🐻", name: "Bear"},
-    %{emoji: "🐊", name: "Crocodile"},
-    %{emoji: "🦏", name: "Rhino"},
+      # Tier 7: 판타지 (61~70)
+      %{emoji: "🦄", name: "Unicorn"},
+      %{emoji: "🪽", name: "Pegasus"},
+      %{emoji: "🦅", name: "Griffin"},
+      %{emoji: "🐉", name: "Wyvern"},
+      %{emoji: "🐲", name: "Elder Dragon"},
+      %{emoji: "🧊", name: "Ice Golem"},
+      %{emoji: "🔥", name: "Fire Elemental"},
+      %{emoji: "🗿", name: "Stone Giant"},
+      %{emoji: "🗽", name: "Titan"},
+      %{emoji: "🏰", name: "Living Castle"},
 
-    # Tier 5: 심해 & 고대생물 (41~50)
-    %{emoji: "🦈", name: "Shark"},
-    %{emoji: "🐋", name: "Whale"},
-    %{emoji: "🐙", name: "Kraken"},
-    %{emoji: "🦑", name: "Giant Squid"},
-    %{emoji: "🦂", name: "Scorpion"},
-    %{emoji: "🕷️", name: "Tarantula"},
-    %{emoji: "🦖", name: "T-Rex"},
-    %{emoji: "🦕", name: "Brachiosaurus"},
-    %{emoji: "🦣", name: "Mammoth"},
-    %{emoji: "🐲", name: "Dragon Head"},
+      # Tier 8: 자연재해 & 현상 (71~80)
+      %{emoji: "🌪️", name: "Tornado"},
+      %{emoji: "🌊", name: "Tsunami"},
+      %{emoji: "🌋", name: "Volcano"},
+      %{emoji: "⛈️", name: "Storm"},
+      %{emoji: "☄️", name: "Meteor"},
+      %{emoji: "🌑", name: "Eclipse"},
+      %{emoji: "☀️", name: "Sun"},
+      %{emoji: "⭐", name: "Star"},
+      %{emoji: "🌟", name: "Supernova"},
+      %{emoji: "🕳️", name: "Black Hole"},
 
-    # Tier 6: 몬스터 (51~60)
-    %{emoji: "👺", name: "Goblin"},
-    %{emoji: "👹", name: "Oni"},
-    %{emoji: "👻", name: "Ghost"},
-    %{emoji: "💀", name: "Skeleton"},
-    %{emoji: "👽", name: "Alien"},
-    %{emoji: "👾", name: "Invader"},
-    %{emoji: "🤖", name: "Robot"},
-    %{emoji: "🧟", name: "Zombie"},
-    %{emoji: "🧛", name: "Vampire"},
-    %{emoji: "🧞", name: "Genie"},
+      # Tier 9: 신화 & 우주 (81~90)
+      %{emoji: "🪐", name: "Saturn"},
+      %{emoji: "🌌", name: "Galaxy"},
+      %{emoji: "🛸", name: "Mothership"},
+      %{emoji: "👑", name: "King"},
+      %{emoji: "💎", name: "Diamond"},
+      %{emoji: "🔱", name: "Poseidon"},
+      %{emoji: "⚜️", name: "Emperor"},
+      %{emoji: "⚛️", name: "Atom"},
+      %{emoji: "☯️", name: "Yin Yang"},
+      %{emoji: "🕉️", name: "Om"},
 
-    # Tier 7: 판타지 (61~70)
-    %{emoji: "🦄", name: "Unicorn"},
-    %{emoji: "🪽", name: "Pegasus"},
-    %{emoji: "🦅", name: "Griffin"},
-    %{emoji: "🐉", name: "Wyvern"},
-    %{emoji: "🐲", name: "Elder Dragon"},
-    %{emoji: "🧊", name: "Ice Golem"},
-    %{emoji: "🔥", name: "Fire Elemental"},
-    %{emoji: "🗿", name: "Stone Giant"},
-    %{emoji: "🗽", name: "Titan"},
-    %{emoji: "🏰", name: "Living Castle"},
-
-    # Tier 8: 자연재해 & 현상 (71~80)
-    %{emoji: "🌪️", name: "Tornado"},
-    %{emoji: "🌊", name: "Tsunami"},
-    %{emoji: "🌋", name: "Volcano"},
-    %{emoji: "⛈️", name: "Storm"},
-    %{emoji: "☄️", name: "Meteor"},
-    %{emoji: "🌑", name: "Eclipse"},
-    %{emoji: "☀️", name: "Sun"},
-    %{emoji: "⭐", name: "Star"},
-    %{emoji: "🌟", name: "Supernova"},
-    %{emoji: "🕳️", name: "Black Hole"},
-
-    # Tier 9: 신화 & 우주 (81~90)
-    %{emoji: "🪐", name: "Saturn"},
-    %{emoji: "🌌", name: "Galaxy"},
-    %{emoji: "🛸", name: "Mothership"},
-    %{emoji: "👑", name: "King"},
-    %{emoji: "💎", name: "Diamond"},
-    %{emoji: "🔱", name: "Poseidon"},
-    %{emoji: "⚜️", name: "Emperor"},
-    %{emoji: "⚛️", name: "Atom"},
-    %{emoji: "☯️", name: "Yin Yang"},
-    %{emoji: "🕉️", name: "Om"},
-
-    # Tier 10: 초월적 존재 (91~100)
-    %{emoji: "💠", name: "Crystal Core"},
-    %{emoji: "🧿", name: "Evil Eye"},
-    %{emoji: "🧬", name: "DNA"},
-    %{emoji: "🧠", name: "Overmind"},
-    %{emoji: "👁️", name: "The Watcher"},
-    %{emoji: "🕴️", name: "Void Walker"},
-    %{emoji: "👼", name: "Seraphim"},
-    %{emoji: "👿", name: "Archdemon"},
-    %{emoji: "💊", name: "The Pill"},
-    %{emoji: "💻", name: "The Server"}
-  ]
+      # Tier 10: 초월적 존재 (91~100)
+      %{emoji: "💠", name: "Crystal Core"},
+      %{emoji: "🧿", name: "Evil Eye"},
+      %{emoji: "🧬", name: "DNA"},
+      %{emoji: "🧠", name: "Overmind"},
+      %{emoji: "👁️", name: "The Watcher"},
+      %{emoji: "🕴️", name: "Void Walker"},
+      %{emoji: "👼", name: "Seraphim"},
+      %{emoji: "👿", name: "Archdemon"},
+      %{emoji: "💊", name: "The Pill"},
+      %{emoji: "💻", name: "The Server"}
+    ])
+  )
 
   def get_boss_info(level) do
     list_length = length(@boss_list)
