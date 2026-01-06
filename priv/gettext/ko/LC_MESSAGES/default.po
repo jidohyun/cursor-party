@@ -381,32 +381,32 @@ msgstr "공격력 +500"
 msgid "Battle Axe"
 msgstr "배틀 액스"
 
-msgid "+10,000 Power"
-msgstr "공격력 +1만"
+msgid "+5,000 Power"
+msgstr "공격력 +5,000"
 
 msgid "Revolver"
 msgstr "리볼버"
 
-msgid "+250,000 Power"
-msgstr "공격력 +25만"
+msgid "+50,000 Power"
+msgstr "공격력 +5만"
 
 msgid "Main Battle Tank"
 msgstr "주력 전차"
 
-msgid "+10 Million Power"
-msgstr "공격력 +1000만"
+msgid "+500,000 Power"
+msgstr "공격력 +50만"
 
 msgid "Orbital Laser"
 msgstr "위성 레이저"
 
-msgid "+5 Billion Power"
-msgstr "공격력 +50억"
+msgid "+5 Million Power"
+msgstr "공격력 +500만"
 
 msgid "Antimatter Bomb"
 msgstr "반물질 폭탄"
 
-msgid "+10 Trillion Power"
-msgstr "공격력 +10조"
+msgid "+100 Million Power"
+msgstr "공격력 +1억"
 
 msgid "Grimoire: Thunderbolt"
 msgstr "마도서: 벼락"
