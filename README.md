@@ -1,3 +1,11 @@
+## 📢 Service Suspension
+
+The beta test for **Cursor Party** has concluded.
+As the 14-day free hosting plan used for the test has expired, the live service has been suspended.
+
+Thank you so much to everyone who played and showed interest during this short period! 🙇‍♂️
+Although the live server is offline, you can still download the source code and run the project locally.
+
 # 🖱️ Cursor Party
 
 [![Elixir](https://img.shields.io/badge/Elixir-4B275F?style=for-the-badge&logo=elixir&logoColor=white)](https://elixir-lang.org/)
