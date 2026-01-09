@@ -1,3 +1,12 @@
+## 📢 서비스 운영 중단 안내
+
+**Cursor Party**의 베타 테스트 운영이 종료되었습니다.
+테스트를 위해 사용하던 호스팅 플랫폼의 무료 플랜(14일)이 만료됨에 따라, 부득이하게 라이브 서비스를 중단하게 되었습니다.
+
+짧은 기간이었지만 관심을 갖고 플레이해 주신 모든 분께 진심으로 감사드립니다! 🙇‍♂️
+라이브 서버는 닫혔지만, 코드를 다운로드하여 로컬 환경에서 직접 실행해 보실 수 있습니다.
+
+
 # 🖱️ Cursor Party
 
 [![Elixir](https://img.shields.io/badge/Elixir-4B275F?style=for-the-badge&logo=elixir&logoColor=white)](https://elixir-lang.org/)
